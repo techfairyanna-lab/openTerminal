@@ -1,0 +1,24 @@
+.gameWrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 12px;
+  background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+}
+
+.canvasContainer {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+  border: 2px solid #1e293b;
+}
+
+.canvasContainer canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
