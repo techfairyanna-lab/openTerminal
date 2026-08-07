@@ -1,0 +1,166 @@
+@layer base {
+  .translationCard {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-6);
+  }
+
+  .translationSection {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-4);
+  }
+
+  .translationTitle {
+    font-family: var(--font-family-monospace);
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--foreground);
+  }
+
+  .translationText {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--foreground);
+    margin: 0;
+  }
+
+  .tokenDisplay {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-3);
+    padding: var(--spacing-4);
+    background-color: color-mix(in srgb, var(--background) 50%, var(--card));
+    border-radius: var(--radius);
+    border: 1px dashed var(--border);
+  }
+
+  .token {
+    font-family: var(--font-family-monospace);
+    font-size: 0.9375rem;
+    padding: var(--spacing-1) var(--spacing-2);
+    border: 1px solid;
+    border-radius: var(--radius-sm);
+    background-color: color-mix(in srgb, currentColor 10%, transparent);
+    cursor: help;
+    transition: transform var(--animation-duration-fast) ease;
+    font-weight: 500;
+  }
+
+  .token:hover {
+    transform: translateY(-2px);
+  }
+
+  .tooltipContent {
+    max-width: 250px;
+  }
+
+  .tokenTooltip {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+  }
+
+  .breakdownList {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .breakdownItem {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-4);
+    padding: var(--spacing-3) 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .breakdownItem:last-child {
+    border-bottom: none;
+  }
+
+  .breakdownTerm {
+    font-family: var(--font-family-monospace);
+    font-weight: 600;
+    font-size: 0.9375rem;
+    width: 140px;
+    flex-shrink: 0;
+    word-break: break-all;
+    background-color: color-mix(in srgb, currentColor 10%, transparent);
+    padding: var(--spacing-1) var(--spacing-2);
+    border-radius: var(--radius-sm);
+    border: 1px solid;
+  }
+
+  .breakdownDetails {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+  }
+
+  .breakdownType {
+    font-size: 0.75rem;
+    font-family: var(--font-family-monospace);
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    font-weight: 500;
+  }
+
+  .breakdownDesc {
+    color: var(--foreground);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+
+  .dangerAlert {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-3);
+    padding: var(--spacing-4);
+    background-color: color-mix(in srgb, var(--error) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--error) 30%, transparent);
+    border-radius: var(--radius);
+    color: var(--error);
+    line-height: 1.5;
+  }
+
+  .dangerIcon {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .warningAlert {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-3);
+    padding: var(--spacing-4);
+    background-color: color-mix(in srgb, var(--warning) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+    border-radius: var(--radius);
+    color: var(--warning);
+    line-height: 1.5;
+  }
+
+  .warningIcon {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .cheatSheetPre {
+    font-family: var(--font-family-monospace);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    padding: var(--spacing-4);
+    background-color: color-mix(in srgb, var(--background) 50%, black);
+    color: white;
+    border-radius: var(--radius);
+    overflow-y: auto;
+    max-height: 400px;
+    white-space: pre-wrap;
+    margin: 0;
+  }
+  
+  .sectionSeparator {
+    background-color: var(--border);
+  }
+}

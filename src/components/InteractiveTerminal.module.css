@@ -1,0 +1,228 @@
+.terminalBlock {
+  background-color: #300A24;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  margin-top: var(--spacing-2);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  height: 400px;
+}
+
+.terminalChrome {
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-2) var(--spacing-3);
+  background-color: #241728;
+  border-bottom: 1px solid #3C1F33;
+  gap: var(--spacing-2);
+  flex-shrink: 0;
+}
+
+.terminalDots {
+  display: flex;
+  gap: 6px;
+}
+
+.terminalDotRed,
+.terminalDotYellow,
+.terminalDotGreen {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.terminalDotRed {
+  background-color: #FF5F56;
+}
+
+.terminalDotYellow {
+  background-color: #FFBD2E;
+}
+
+.terminalDotGreen {
+  background-color: #27C93F;
+}
+
+.terminalLabel {
+  font-size: 0.75rem;
+  font-family: 'Ubuntu Mono', ui-monospace, SFMono-Regular, monospace;
+  color: #8B7A8B;
+}
+
+.terminalContentWrapper {
+  position: relative;
+  min-height: 400px;
+  max-height: calc(50vh - 80px);
+  overflow-y: auto;
+  overflow-x: auto; 
+  flex-grow: 1;
+}
+
+.terminalContent {
+  margin: 0;
+  padding: var(--spacing-4);
+  font-family: 'Ubuntu Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.875rem;
+  color: #EEEEEC;
+  display: flex;
+  flex-direction: column;
+  letter-spacing: 0px;
+  font-variant-ligatures: none;
+}
+
+.entryContainer {
+  margin-bottom: var(--spacing-2);
+  display: flex;
+  flex-direction: column;
+}
+
+.commandLine {
+  /* pre-wrap allows wrapping, break-all forces it to break exactly at the character limit like a real terminal */
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.terminalPrompt {
+  color: #4E9A06;
+  font-weight: bold;
+}
+
+.terminalCommand {
+  color: #EEEEEC;
+  font-weight: normal; /* Ensures the command text isn't bold */
+}
+
+.outputContainer {
+  margin-top: 2px;
+  display: flex;
+  flex-direction: column;
+}
+
+.outputLine {
+  /* Soft wrap exactly like VTE terminal */
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.outputSegment {
+  cursor: pointer;
+  display: inline;
+  border-radius: 2px;
+  border-bottom: 1px solid transparent;
+  transition: background-color var(--animation-duration-fast) ease, border-bottom-color var(--animation-duration-fast) ease;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.outputSegment:hover {
+  background-color: rgba(78, 154, 6, 0.25);
+  border-bottom-color: rgba(78, 154, 6, 0.5);
+  color: #EEEEEC;
+}
+
+.inputRow {
+  display: flex;
+  align-items: center;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.terminalInput {
+  background: transparent;
+  border: none;
+  color: #EEEEEC;
+  font-family: 'Ubuntu Mono', ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.875rem;
+  font-weight: normal; /* Fixed the thick font issue here */
+  flex: 1;
+  outline: none;
+  padding: 0;
+  margin: 0;
+}
+
+.terminalInput::placeholder {
+  color: rgba(238, 238, 236, 0.4);
+}
+
+.blinkingCursor {
+  display: inline-block;
+  width: 8px;
+  height: 1em;
+  background-color: #EEEEEC;
+  animation: blink 1s step-end infinite;
+  vertical-align: middle;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.segmentTooltip {
+  max-width: 320px;
+  background-color: white;
+  color: #1a1a1a;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08);
+  padding: 0;
+  border: 1px solid #e5e5e5;
+  z-index: var(--z-overlay);
+}
+
+.segmentTooltipContent {
+  padding: var(--spacing-3) var(--spacing-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.segmentTooltipCode {
+  font-family: var(--font-family-monospace);
+  font-size: 0.8125rem;
+  color: #2d6a4f;
+  background-color: #f0fdf4;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  display: inline-block;
+  align-self: flex-start;
+}
+
+.segmentTooltipExplanation {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.terminalContentWrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.terminalContentWrapper::-webkit-scrollbar-track {
+  background: #1a0a14;
+}
+.terminalContentWrapper::-webkit-scrollbar-thumb {
+  background-color: #4a2a3a;
+  border-radius: 4px;
+}
+.terminalContentWrapper::-webkit-scrollbar-thumb:hover {
+  background-color: #6a3a5a;
+}
+
+.terminalContent ::selection {
+  background-color: rgba(78, 154, 6, 0.3); /* Ubuntu green highlight */
+  color: #EEEEEC;
+}
+
+.terminalContent ::-moz-selection {
+  background-color: rgba(78, 154, 6, 0.3);
+  color: #EEEEEC;
+}
