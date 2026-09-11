@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 
 const W = 800, H = 600;
-const PORTRAIT_URL = "https://image.qwenlm.ai/public_source/8b950e7f-ce12-41be-9d0b-380b05cc8d26/143a0be2c-e357-494d-a484-53e3e2b0e83a.png";
+const PORTRAIT_URL = "./assets/fairy.png";
 
 /* ---------------- procedural audio ---------------- */
 class SoundKit {
@@ -122,8 +122,8 @@ function makeTextures(scn: Phaser.Scene) {
     cx.fillStyle = "#f2f2ea";
     cx.font = "bold 14px monospace"; cx.textAlign = "center"; cx.textBaseline = "middle";
     cx.fillText("EXIT", 32, 15);
-    cx.fillTriangle(7, 14, 13, 9, 13, 19);
-    cx.fillTriangle(57, 14, 51, 9, 51, 19);
+    cx.beginPath(); cx.moveTo(7, 14); cx.lineTo(13, 9); cx.lineTo(13, 19); cx.closePath(); cx.fill();
+    cx.beginPath(); cx.moveTo(57, 14); cx.lineTo(51, 9); cx.lineTo(51, 19); cx.closePath(); cx.fill();
   });
   canvasTex(scn, "wall_clock", 24, 24, (cx) => {
     cx.fillStyle = "#cfcfc0"; cx.beginPath(); cx.arc(12, 12, 10, 0, 7); cx.fill();
@@ -140,7 +140,8 @@ function makeTextures(scn: Phaser.Scene) {
   });
   canvasTex(scn, "sticky", 12, 12, (cx) => {
     cx.fillStyle = "#e8d878"; cx.fillRect(0, 0, 12, 12);
-    cx.fillStyle = "#c9b958"; cx.fillTriangle(12, 12, 7, 12, 12, 7);
+    cx.fillStyle = "#c9b958";
+    cx.beginPath(); cx.moveTo(12, 12); cx.lineTo(7, 12); cx.lineTo(12, 7); cx.closePath(); cx.fill();
   });
   canvasTex(scn, "outlet", 12, 16, (cx) => {
     cx.fillStyle = "#e8e8e0"; cx.fillRect(0, 0, 12, 16);
@@ -265,7 +266,6 @@ export class HomeRoomScene extends Phaser.Scene {
   shadowSprite!: Phaser.GameObjects.Image; exitGlow!: Phaser.GameObjects.Image; promptText!: Phaser.GameObjects.Text; toastText!: Phaser.GameObjects.Text;
   objText!: Phaser.GameObjects.Text; barTop!: Phaser.GameObjects.Rectangle; barBot!: Phaser.GameObjects.Rectangle; grainTile!: Phaser.GameObjects.TileSprite;
   lightTex!: Phaser.Textures.CanvasTexture; lightCtx!: CanvasRenderingContext2D;
-  dlgBox!: Phaser.GameObjects.Rectangle; dlgPortFrame!: Phaser.GameObjects.Rectangle; dlgPortrait!: Phaser.GameObjects.Image; dlgName!: Phaser.GameObjects.Text; dlgText!: Phaser.GameObjects.Text; dlgArrow!: Phaser.GameObjects.Text;
   dlg: any = { active: false, lines: [], idx: 0, shown: 0, acc: 0, done: false, onClose: null };
   endBg!: Phaser.GameObjects.Rectangle; endT1!: Phaser.GameObjects.Text; endT2!: Phaser.GameObjects.Text; endT3!: Phaser.GameObjects.Text;
   pauseBg!: Phaser.GameObjects.Rectangle; pauseT!: Phaser.GameObjects.Text; pauseH!: Phaser.GameObjects.Text;
@@ -373,15 +373,7 @@ export class HomeRoomScene extends Phaser.Scene {
     this.tweens.add({ targets: this.promptText, y: "-=3", duration: 500, yoyo: true, repeat: -1 });
     this.toastText = this.add.text(400, 70, "", { fontFamily: '"Press Start 2P"', fontSize: "8px", color: "#ffffff", backgroundColor: "#000000cc", padding: { x: 6, y: 5 } }).setOrigin(0.5).setDepth(71).setVisible(false);
 
-    this.dlgBox = this.add.rectangle(400, 550, 768, 96, 0x04120a, 0.9).setStrokeStyle(2, 0x2c4a2e).setDepth(80);
-    this.dlgPortFrame = this.add.rectangle(66, 550, 76, 76, 0x000000, 0).setStrokeStyle(2, 0x3c6a3e).setDepth(80);
-    const portKey = this.textures.exists("faye_portrait") ? "faye_portrait" : "faye_proc";
-    this.dlgPortrait = this.add.image(66, 550, portKey).setDisplaySize(72, 72).setDepth(81);
-    this.dlgName = this.add.text(112, 512, "", { fontFamily: '"Press Start 2P"', fontSize: "8px", color: "#cfe8cf", backgroundColor: "#000000", padding: { x: 4, y: 3 } }).setDepth(82);
-    this.dlgText = this.add.text(112, 534, "", { fontFamily: "VT323", fontSize: "22px", color: "#e8ffe8", wordWrap: { width: 640 } }).setDepth(82);
-    this.dlgArrow = this.add.text(752, 584, "▼", { fontFamily: "VT323", fontSize: "20px", color: "#9fe89f" }).setOrigin(0.5).setDepth(82);
-    this.tweens.add({ targets: this.dlgArrow, alpha: 0, duration: 300, yoyo: true, repeat: -1 });
-    [this.dlgBox, this.dlgPortFrame, this.dlgPortrait, this.dlgName, this.dlgText, this.dlgArrow].forEach(o => o.setVisible(false));
+
 
     this.endBg = this.add.rectangle(400, 300, W, H, 0x000000).setDepth(95).setVisible(false);
     this.endT1 = this.add.text(400, 240, "LEVEL 0 // EXIT REACHED", { fontFamily: '"Press Start 2P"', fontSize: "16px", color: "#e3dd9a" }).setOrigin(0.5).setDepth(96).setVisible(false);
@@ -425,37 +417,25 @@ export class HomeRoomScene extends Phaser.Scene {
   startDialogue(lines: any[], onClose?: () => void) {
     if (this.dlg.active) return;
     this.dlg.active = true; this.dlg.lines = lines; this.dlg.idx = 0; this.dlg.onClose = onClose || null;
-    [this.dlgBox, this.dlgPortFrame, this.dlgPortrait, this.dlgName, this.dlgText, this.dlgArrow].forEach(o => o.setVisible(true));
     this.promptText.setVisible(false);
     this.setupLine();
   }
   setupLine() {
     const line = this.dlg.lines[this.dlg.idx];
-    this.dlg.shown = 0; this.dlg.acc = 0; this.dlg.done = false;
-    this.dlgName.setText(line.name);
-    const isF = line.name === "FAYE";
-    this.dlgPortrait.setVisible(isF); this.dlgPortFrame.setVisible(isF);
-    this.dlgText.setText(""); this.dlgArrow.setVisible(false);
-  }
-  typeStep(delta: number) {
-    const d = this.dlg; if (!d.active || d.done) return;
-    const full = d.lines[d.idx].text;
-    d.acc += delta;
-    while (d.acc > 16 && d.shown < full.length) {
-      d.acc -= 16; d.shown++;
-      if (d.shown % 2 === 0 && full[d.shown - 1] !== " ") soundKit.blip();
+    if (line) {
+      const speak = this.game.registry.get('onFayeSpeak') as ((text: string) => void) | undefined;
+      if (speak) speak(line.text);
     }
-    if (d.shown >= full.length) { d.done = true; this.dlgArrow.setVisible(true); }
-    this.dlgText.setText(full.substring(0, d.shown));
+  }
+  typeStep(_delta: number) {
+    // In-canvas typing omitted; React primary dialogue displays text
   }
   advanceDialogue() {
-    const d = this.dlg, full = d.lines[d.idx].text;
-    if (!d.done) { d.shown = full.length; d.done = true; this.dlgText.setText(full); this.dlgArrow.setVisible(true); return; }
+    const d = this.dlg;
     d.idx++;
     if (d.idx < d.lines.length) this.setupLine();
     else {
       d.active = false;
-      [this.dlgBox, this.dlgPortFrame, this.dlgPortrait, this.dlgName, this.dlgText, this.dlgArrow].forEach(o => o.setVisible(false));
       this.cooldown = this.time.now + 250;
       if (d.onClose) { const cb = d.onClose; d.onClose = null; cb(); }
     }

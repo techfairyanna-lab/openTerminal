@@ -2,23 +2,17 @@ import Phaser from 'phaser';
 
 // ------------------------------------------------------------------
 //  IsoHomeRoomScene — the "/home" directory, 2.5D isometric edition.
-//  Small enclosed cozy room: four walls, closed root door on the
-//  back wall, terminal + downloads sitting on the table, corner
-//  lamp, tall Documents/ box, no floating labels, and an
-//  exploration-gated root door.
-//  NOTE: written without angle-bracket characters so it survives
-//  copy/paste pipelines that eat them.
+//  Clean 16-bit SNES style, flat colors, thick outlines.
 // ------------------------------------------------------------------
 
 const W = 800;
 const H = 600;
 const TILE_W = 64;
 const TILE_H = 32;
-const WALL_H = 120; // Taller walls for a cozier, more enclosed room feel
-const WALL_THICKNESS = 0.2; // Slimmer walls to look like real drywall
+const WALL_H = 120;
+const WALL_THICKNESS = 0.2;
 const LOW_WALL_H = 14;
 const DESK_H = 26;
-// decreased walking space: tiny 9x7 room, walls on all four sides
 const GRID_W = 9;
 const GRID_H = 7;
 const ORIGIN_X = W / 2;
@@ -53,7 +47,6 @@ interface ExploredMap {
   pictures: boolean;
 }
 
-// call-signature types (no arrow syntax needed)
 type TargetCallback = { (target: string): void };
 type DrawCallback = { (cx: CanvasRenderingContext2D): void };
 
@@ -62,7 +55,6 @@ type ExploreId = 'computer' | 'cabinet' | 'trash' | 'pictures';
 const EXPLORE_IDS: ExploreId[] = ['computer', 'cabinet', 'trash', 'pictures'];
 
 export class IsoHomeRoomScene extends Phaser.Scene {
-  // player + input
   private player!: Phaser.Physics.Arcade.Sprite;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyW!: Phaser.Input.Keyboard.Key;
@@ -73,29 +65,24 @@ export class IsoHomeRoomScene extends Phaser.Scene {
   private keySpace!: Phaser.Input.Keyboard.Key;
   private keyEnter!: Phaser.Input.Keyboard.Key;
 
-  // grid movement
   private playerGrid = { x: 3, y: 5 };
   private moving = false;
   private moveProxy = { t: 0 };
   private solids: SolidTile[] = [];
 
-  // actors
   private fairy!: Phaser.GameObjects.Sprite;
   private fairyWings!: Phaser.GameObjects.Sprite;
   private fairyGlow!: Phaser.GameObjects.Sprite;
   private fairyBase = { x: 0, y: 0 };
   private fairyGrid = { x: 5, y: 4 };
 
-  // lighting
   private lightTex!: Phaser.Textures.CanvasTexture;
   private lightCtx!: CanvasRenderingContext2D;
   private lampWorld = { x: 0, y: 0 };
   private crtWorld = { x: 0, y: 0 };
 
-  // react bridge
   private onInteract?: TargetCallback;
 
-  // interaction + exploration state
   private interactables: InteractableDef[] = [];
   private nearTarget: InteractableDef | null = null;
   private promptText!: Phaser.GameObjects.Text;
@@ -108,25 +95,19 @@ export class IsoHomeRoomScene extends Phaser.Scene {
     pictures: false,
   };
   private doorUnlocked = false;
-  private pendingUnlock = false;
   private doorSprite!: Phaser.GameObjects.Sprite;
 
-  // dialogue
-  private dlgBox!: Phaser.GameObjects.Rectangle;
-  private dlgName!: Phaser.GameObjects.Text;
-  private dlgText!: Phaser.GameObjects.Text;
-  private dlgArrow!: Phaser.GameObjects.Text;
-  private dlgActive = false;
+  // Kept to avoid breaking other internal references, but no longer locks movement
+  private dlgActive = false; 
   private dlgFull = '';
-  private dlgShown = 0;
-  private dlgAcc = 0;
-  private dlgDone = false;
+  private dlgDone = true;
+  private pendingUnlock = false;
 
   constructor() {
     super('IsoHomeRoom');
   }
 
-  // ==================== ISO MATH (manual, no plugin) ====================
+  // ==================== ISO MATH ====================
 
   private isoToScreen(gx: number, gy: number): { x: number; y: number } {
     const screenX = (gx - gy) * (TILE_W / 2);
@@ -138,7 +119,6 @@ export class IsoHomeRoomScene extends Phaser.Scene {
     return (gx + gy) * 10 + spriteYOffset;
   }
 
-  // inclusive integer range check without relational operators
   private between(v: number, lo: number, hi: number): boolean {
     return Math.min(hi, Math.max(lo, v)) === v;
   }
@@ -158,12 +138,11 @@ export class IsoHomeRoomScene extends Phaser.Scene {
 
     this.cameras.main.fadeIn(600);
     this.time.addEvent({
-      delay: 900,
-      callback: function () {
-        self.openDialogue(
-          'Welcome to /home! Explore everything: your Documents, Downloads, Pictures and Terminal. Then the root door will open.'
-        );
-      },
+      delay: 500,
+      callback: () => {
+        const speak = this.game.registry.get('onFayeSpeak') as ((text: string) => void) | undefined;
+        if (speak) speak("Welcome to /home! Go to the computer and press [E] to open the terminal, then head to the root directory.");
+      }
     });
   }
 
@@ -234,8 +213,9 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       cx.closePath();
       cx.fill();
 
-      cx.strokeStyle = 'rgba(17,17,27,0.6)';
-      cx.lineWidth = 1;
+      cx.strokeStyle = '#1e1e2e';
+      cx.lineWidth = 2;
+      
       cx.beginPath();
       cx.moveTo(ax, 0);
       cx.lineTo(bx, byy);
@@ -243,20 +223,21 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       cx.lineTo(dx, dy);
       cx.closePath();
       cx.stroke();
+      
       cx.beginPath();
-      cx.moveTo(dx, dy);
-      cx.lineTo(dx, dy + height);
-      cx.moveTo(bx, byy);
-      cx.lineTo(bx, byy + height);
       cx.moveTo(cxp, cyp);
       cx.lineTo(cxp, cyp + height);
       cx.stroke();
+      
+      // FIX: Solid edges to prevent clipping
+      cx.fillStyle = '#1e1e2e';
+      cx.fillRect(0, dy - 1, 2, height + 2);
+      cx.fillRect(cw - 2, byy - 1, 2, height + 2);
 
       if (detail) detail(cx);
     });
   }
 
-  // Dedicated method for drawing warm wallpaper, baseboards, and subtle stripes
   private wallTexture(key: string, fw: number, fh: number, height: number, detail?: DrawCallback): void {
     const cw = (fw + fh) * (TILE_W / 2);
     const chh = (fw + fh) * (TILE_H / 2);
@@ -269,8 +250,7 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       const dx = 0;
       const dy = fh * (TILE_H / 2);
 
-      // Left face (warm terracotta wallpaper)
-      cx.fillStyle = '#e29578';
+      cx.fillStyle = '#b56545';
       cx.beginPath();
       cx.moveTo(dx, dy);
       cx.lineTo(cxp, cyp);
@@ -279,8 +259,7 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       cx.closePath();
       cx.fill();
 
-      // Right face (same color to make wallpaper uniform across corners)
-      cx.fillStyle = '#e29578';
+      cx.fillStyle = '#9a5236';
       cx.beginPath();
       cx.moveTo(bx, byy);
       cx.lineTo(cxp, cyp);
@@ -289,8 +268,7 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       cx.closePath();
       cx.fill();
 
-      // Top face (warm wood trim)
-      cx.fillStyle = '#d4a373';
+      cx.fillStyle = '#8b5a2b';
       cx.beginPath();
       cx.moveTo(ax, 0);
       cx.lineTo(bx, byy);
@@ -299,7 +277,6 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       cx.closePath();
       cx.fill();
 
-      // Baseboards
       const baseH = 12;
       cx.fillStyle = '#5c4033';
       cx.beginPath();
@@ -319,33 +296,10 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       cx.closePath();
       cx.fill();
 
-      // Wallpaper subtle vertical stripes
-      cx.strokeStyle = 'rgba(255, 235, 205, 0.25)';
-      cx.lineWidth = 2;
-      for (let i = 1; i !== 10; i++) {
-        const t = i / 10;
-        const x1 = dx + (cxp - dx) * t;
-        const y1 = dy + (cyp - dy) * t;
-        cx.beginPath();
-        cx.moveTo(x1, y1);
-        cx.lineTo(x1, y1 + height - baseH);
-        cx.stroke();
-      }
-      for (let i = 1; i !== 10; i++) {
-        const t = i / 10;
-        const x1 = cxp + (bx - cxp) * t;
-        const y1 = cyp + (byy - cyp) * t;
-        cx.beginPath();
-        cx.moveTo(x1, y1);
-        cx.lineTo(x1, y1 + height - baseH);
-        cx.stroke();
-      }
-
       if (detail) detail(cx);
 
-      // Outlines
-      cx.strokeStyle = 'rgba(17,17,27,0.5)';
-      cx.lineWidth = 1;
+      cx.strokeStyle = '#1e1e2e';
+      cx.lineWidth = 2;
       cx.beginPath();
       cx.moveTo(ax, 0);
       cx.lineTo(bx, byy);
@@ -353,91 +307,64 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       cx.lineTo(dx, dy);
       cx.closePath();
       cx.stroke();
+      
       cx.beginPath();
-      cx.moveTo(dx, dy);
-      cx.lineTo(dx, dy + height);
-      cx.moveTo(bx, byy);
-      cx.lineTo(bx, byy + height);
       cx.moveTo(cxp, cyp);
       cx.lineTo(cxp, cyp + height);
       cx.stroke();
+
+      cx.fillStyle = '#1e1e2e';
+      cx.fillRect(0, dy - 1, 2, height + 2);
+      cx.fillRect(cw - 2, byy - 1, 2, height + 2);
     });
   }
 
   private makeTextures(): void {
     const self = this;
 
-    const P = function (
-      cx: CanvasRenderingContext2D,
-      x: number,
-      y: number,
-      w: number,
-      h: number,
-      c: string
-    ): void {
-      cx.fillStyle = c;
-      cx.fillRect(x, y, w, h);
-    };
-
-    const floorTex = function (key: string, base: string): void {
+    const floorTex = function (key: string, base: string, line: string): void {
       self.canvasTexture(key, TILE_W, TILE_H, function (cx) {
-        self.diamondPath(cx, 32, 16, TILE_W, TILE_H);
         cx.fillStyle = base;
+        self.diamondPath(cx, 32, 16, TILE_W, TILE_H);
         cx.fill();
-        cx.save();
+        
+        cx.strokeStyle = line;
+        cx.lineWidth = 2;
         self.diamondPath(cx, 32, 16, TILE_W, TILE_H);
-        cx.clip();
-        cx.strokeStyle = '#2a211f';
-        cx.lineWidth = 1;
-        cx.beginPath();
-        cx.moveTo(16, 8);
-        cx.lineTo(48, 24);
-        cx.moveTo(16, 24);
-        cx.lineTo(48, 8);
-        cx.stroke();
-        cx.fillStyle = '#4a3b36';
-        cx.fillRect(24, 12, 3, 1);
-        cx.fillRect(40, 18, 3, 1);
-        cx.fillRect(30, 20, 2, 1);
-        cx.restore();
-        self.diamondPath(cx, 32, 16, TILE_W, TILE_H);
-        cx.strokeStyle = 'rgba(17,17,27,0.7)';
         cx.stroke();
       });
     };
-    floorTex('isofloora', '#3b2f2b');
-    floorTex('isofloorb', '#40342e');
+    floorTex('isofloora', '#5c4a3d', '#1e1e2e');
+    floorTex('isofloorb', '#4f3f33', '#1e1e2e');
 
     this.canvasTexture('isorug', TILE_W, TILE_H, function (cx) {
+      cx.fillStyle = '#8b2635';
       self.diamondPath(cx, 32, 16, TILE_W, TILE_H);
-      cx.fillStyle = '#2b2640';
       cx.fill();
+      
+      cx.fillStyle = '#c89b3c';
       self.diamondPath(cx, 32, 16, TILE_W - 16, TILE_H - 8);
-      cx.strokeStyle = '#585090';
-      cx.lineWidth = 2;
-      cx.stroke();
-      self.diamondPath(cx, 32, 16, 12, 6);
-      cx.fillStyle = '#45407a';
       cx.fill();
+      
+      cx.strokeStyle = '#1e1e2e';
+      cx.lineWidth = 2;
+      self.diamondPath(cx, 32, 16, TILE_W, TILE_H);
+      cx.stroke();
     });
 
-    // Slim, tall, warm wallpaper walls
     this.wallTexture('isowall_back', 1, WALL_THICKNESS, WALL_H);
     this.wallTexture('isowall_left', WALL_THICKNESS, 1, WALL_H);
 
-    // CLOSED wooden door on the back wall (root exit), extended all the way to the ground
     this.wallTexture('isodoorwall', 1, WALL_THICKNESS, WALL_H, function (cx) {
-      // door frame
-      cx.fillStyle = '#3b2f2b';
+      cx.fillStyle = '#1e1e2e';
       cx.beginPath();
-      cx.moveTo(5, 22);
-      cx.lineTo(27, 33);
-      cx.lineTo(27, 137);
-      cx.lineTo(5, 126);
+      cx.moveTo(4, 21);
+      cx.lineTo(28, 33);
+      cx.lineTo(28, 138);
+      cx.lineTo(4, 126);
       cx.closePath();
       cx.fill();
 
-      // door body
       cx.fillStyle = '#5a4636';
       cx.beginPath();
       cx.moveTo(6, 24);
@@ -447,17 +374,14 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       cx.closePath();
       cx.fill();
 
-      // door panels
-      cx.strokeStyle = '#3b2f2b';
-      cx.lineWidth = 1;
-
+      cx.fillStyle = '#4a392b';
       cx.beginPath();
       cx.moveTo(9, 42);
       cx.lineTo(23, 49);
       cx.lineTo(23, 74);
       cx.lineTo(9, 67);
       cx.closePath();
-      cx.stroke();
+      cx.fill();
 
       cx.beginPath();
       cx.moveTo(9, 82);
@@ -465,16 +389,16 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       cx.lineTo(23, 122);
       cx.lineTo(9, 115);
       cx.closePath();
-      cx.stroke();
+      cx.fill();
 
-      // knob
       cx.fillStyle = '#f9e2af';
-      cx.fillRect(22, 86, 2, 3);
+      cx.fillRect(21, 86, 3, 4);
+      cx.strokeStyle = '#1e1e2e';
+      cx.lineWidth = 1;
+      cx.strokeRect(21, 86, 3, 4);
     });
 
-    // OPEN door: dark opening + swung slab, also down to the ground
     this.wallTexture('isodooropen', 1, WALL_THICKNESS, WALL_H, function (cx) {
-      // dark opening
       cx.fillStyle = '#0b0b10';
       cx.beginPath();
       cx.moveTo(6, 24);
@@ -484,17 +408,15 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       cx.closePath();
       cx.fill();
 
-      // faint warm light spilling out
-      cx.fillStyle = 'rgba(249,226,175,0.14)';
+      cx.fillStyle = '#1e1e2e';
       cx.beginPath();
-      cx.moveTo(9, 42);
-      cx.lineTo(23, 49);
-      cx.lineTo(23, 122);
-      cx.lineTo(9, 115);
+      cx.moveTo(25, 33);
+      cx.lineTo(39, 27);
+      cx.lineTo(39, 131);
+      cx.lineTo(25, 137);
       cx.closePath();
       cx.fill();
 
-      // swung door slab
       cx.fillStyle = '#5a4636';
       cx.beginPath();
       cx.moveTo(26, 34);
@@ -504,31 +426,33 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       cx.closePath();
       cx.fill();
 
-      cx.strokeStyle = '#3b2f2b';
-      cx.lineWidth = 1;
-      cx.stroke();
-
-      // panel on swung door
+      cx.fillStyle = '#4a392b';
       cx.beginPath();
       cx.moveTo(29, 52);
       cx.lineTo(35, 49);
       cx.lineTo(35, 82);
       cx.lineTo(29, 85);
       cx.closePath();
-      cx.stroke();
+      cx.fill();
 
-      // knob
       cx.fillStyle = '#f9e2af';
-      cx.fillRect(33, 84, 2, 3);
+      cx.fillRect(32, 84, 3, 4);
+      cx.strokeStyle = '#1e1e2e';
+      cx.lineWidth = 1;
+      cx.strokeRect(32, 84, 3, 4);
     });
-
-    // ---------------------------------------------------------------
-    // Picture helpers: back-wall pictures slope one way.
-    // ---------------------------------------------------------------
 
     const picBack = function (key: string, frameCol: string, matteCol: string, art: DrawCallback): void {
       self.canvasTexture(key, 24, 26, function (cx) {
-        // frame
+        cx.fillStyle = '#1e1e2e';
+        cx.beginPath();
+        cx.moveTo(0, 0);
+        cx.lineTo(22, 10);
+        cx.lineTo(22, 26);
+        cx.lineTo(0, 16);
+        cx.closePath();
+        cx.fill();
+
         cx.fillStyle = frameCol;
         cx.beginPath();
         cx.moveTo(1, 1);
@@ -538,7 +462,6 @@ export class IsoHomeRoomScene extends Phaser.Scene {
         cx.closePath();
         cx.fill();
 
-        // picture area
         cx.save();
         cx.beginPath();
         cx.moveTo(4, 5);
@@ -551,26 +474,21 @@ export class IsoHomeRoomScene extends Phaser.Scene {
         cx.clip();
 
         if (art) art(cx);
-
         cx.restore();
-
-        // frame outline
-        cx.strokeStyle = 'rgba(17,17,27,0.5)';
-        cx.lineWidth = 1;
-        cx.beginPath();
-        cx.moveTo(1, 1);
-        cx.lineTo(21, 11);
-        cx.lineTo(21, 25);
-        cx.lineTo(1, 15);
-        cx.closePath();
-        cx.stroke();
       });
     };
 
-    // Larger window helper for the left wall, with light rays in the glass
-    const windowLeftLarge = function (key: string, frameCol: string, glassTop: string, glassBottom: string): void {
+    const windowLeftLarge = function (key: string, frameCol: string, glassCol: string): void {
       self.canvasTexture(key, 40, 56, function (cx) {
-        // outer frame
+        cx.fillStyle = '#1e1e2e';
+        cx.beginPath();
+        cx.moveTo(39, 2);
+        cx.lineTo(5, 19);
+        cx.lineTo(5, 51);
+        cx.lineTo(39, 34);
+        cx.closePath();
+        cx.fill();
+
         cx.fillStyle = frameCol;
         cx.beginPath();
         cx.moveTo(38, 4);
@@ -580,874 +498,392 @@ export class IsoHomeRoomScene extends Phaser.Scene {
         cx.closePath();
         cx.fill();
 
-        // glass
-        cx.save();
+        cx.fillStyle = glassCol;
         cx.beginPath();
-        cx.moveTo(34, 9);
-        cx.lineTo(10, 21);
-        cx.lineTo(10, 44);
-        cx.lineTo(34, 32);
-        cx.closePath();
-
-        const glass = cx.createLinearGradient(0, 9, 0, 44);
-        glass.addColorStop(0, glassTop);
-        glass.addColorStop(1, glassBottom);
-        cx.fillStyle = glass;
-        cx.fill();
-        cx.clip();
-
-        // incoming light rays
-        cx.fillStyle = 'rgba(255,255,255,0.30)';
-        cx.beginPath();
-        cx.moveTo(14, 10);
-        cx.lineTo(18, 10);
-        cx.lineTo(28, 44);
-        cx.lineTo(24, 44);
+        cx.moveTo(36, 7);
+        cx.lineTo(8, 21);
+        cx.lineTo(8, 45);
+        cx.lineTo(36, 31);
         cx.closePath();
         cx.fill();
 
-        cx.fillStyle = 'rgba(255,255,255,0.18)';
+        cx.strokeStyle = '#1e1e2e';
+        cx.lineWidth = 4;
         cx.beginPath();
-        cx.moveTo(22, 8);
-        cx.lineTo(25, 8);
-        cx.lineTo(33, 36);
-        cx.lineTo(30, 36);
-        cx.closePath();
-        cx.fill();
-
-        // window crossbars
-        cx.strokeStyle = frameCol;
-        cx.lineWidth = 3;
-        cx.beginPath();
-        cx.moveTo(22, 15);
-        cx.lineTo(22, 38);
-        cx.moveTo(10, 32.5);
-        cx.lineTo(34, 20.5);
+        cx.moveTo(22, 14); cx.lineTo(22, 38);
+        cx.moveTo(6, 34); cx.lineTo(38, 18);
         cx.stroke();
 
-        cx.restore();
-
-        // outline
-        cx.strokeStyle = 'rgba(17,17,27,0.5)';
-        cx.lineWidth = 1;
+        cx.strokeStyle = frameCol;
+        cx.lineWidth = 2;
         cx.beginPath();
-        cx.moveTo(38, 4);
-        cx.lineTo(6, 20);
-        cx.lineTo(6, 48);
-        cx.lineTo(38, 32);
-        cx.closePath();
+        cx.moveTo(22, 14); cx.lineTo(22, 38);
+        cx.moveTo(6, 34); cx.lineTo(38, 18);
         cx.stroke();
       });
     };
 
-    // Actual little pictures, each with different shapes and colors
-
     const sunsetArt = function (cx: CanvasRenderingContext2D): void {
-      const sky = cx.createLinearGradient(0, 4, 0, 22);
-      sky.addColorStop(0, '#cba6f7');
-      sky.addColorStop(0.5, '#f5c2e7');
-      sky.addColorStop(1, '#fab387');
-      cx.fillStyle = sky;
-      cx.fillRect(0, 0, 24, 26);
-
-      cx.fillStyle = '#f9e2af';
-      cx.beginPath();
-      cx.arc(11, 10, 3, 0, Math.PI * 2);
-      cx.fill();
-
-      cx.fillStyle = '#89dceb';
-      cx.fillRect(0, 14, 24, 12);
-
-      cx.strokeStyle = 'rgba(249,226,175,0.75)';
-      cx.lineWidth = 1;
-      cx.beginPath();
-      cx.moveTo(7, 16);
-      cx.lineTo(15, 16);
-      cx.moveTo(6, 18);
-      cx.lineTo(16, 18);
-      cx.moveTo(8, 20);
-      cx.lineTo(14, 20);
-      cx.stroke();
+      cx.fillStyle = '#cba6f7'; cx.fillRect(0, 0, 24, 12);
+      cx.fillStyle = '#fab387'; cx.fillRect(0, 12, 24, 14);
+      cx.fillStyle = '#f9e2af'; cx.fillRect(9, 7, 6, 6);
+      cx.fillStyle = '#89dceb'; cx.fillRect(0, 18, 24, 8);
+      cx.fillStyle = '#f9e2af'; cx.fillRect(7, 19, 10, 2); cx.fillRect(6, 22, 12, 2);
     };
 
     const mountainArt = function (cx: CanvasRenderingContext2D): void {
-      const sky = cx.createLinearGradient(0, 4, 0, 22);
-      sky.addColorStop(0, '#89b4fa');
-      sky.addColorStop(1, '#cdd6f4');
-      cx.fillStyle = sky;
-      cx.fillRect(0, 0, 24, 26);
-
-      cx.fillStyle = '#f9e2af';
-      cx.beginPath();
-      cx.arc(17, 7, 2, 0, Math.PI * 2);
-      cx.fill();
-
+      cx.fillStyle = '#89b4fa'; cx.fillRect(0, 0, 24, 26);
+      cx.fillStyle = '#f9e2af'; cx.fillRect(15, 5, 4, 4);
       cx.fillStyle = '#585b70';
-      cx.beginPath();
-      cx.moveTo(2, 22);
-      cx.lineTo(10, 7);
-      cx.lineTo(18, 22);
-      cx.closePath();
-      cx.fill();
-
-      cx.fillStyle = '#f5e0dc';
-      cx.beginPath();
-      cx.moveTo(8, 11);
-      cx.lineTo(10, 7);
-      cx.lineTo(12, 11);
-      cx.lineTo(10, 13);
-      cx.closePath();
-      cx.fill();
-
-      cx.fillStyle = '#a6e3a1';
-      cx.fillRect(0, 19, 24, 7);
+      cx.beginPath(); cx.moveTo(2, 22); cx.lineTo(10, 7); cx.lineTo(18, 22); cx.closePath(); cx.fill();
+      cx.fillStyle = '#f5e0dc'; cx.fillRect(8, 10, 4, 4);
+      cx.fillStyle = '#a6e3a1'; cx.fillRect(0, 19, 24, 7);
     };
 
     const forestArt = function (cx: CanvasRenderingContext2D): void {
-      const sky = cx.createLinearGradient(0, 4, 0, 22);
-      sky.addColorStop(0, '#94e2d5');
-      sky.addColorStop(1, '#cdd6f4');
-      cx.fillStyle = sky;
-      cx.fillRect(0, 0, 24, 26);
-
-      cx.fillStyle = '#3b2f2b';
-      cx.fillRect(0, 18, 24, 8);
-
-      cx.fillStyle = '#7c5c49';
-      cx.fillRect(10, 13, 2, 6);
-
+      cx.fillStyle = '#94e2d5'; cx.fillRect(0, 0, 24, 18);
+      cx.fillStyle = '#3b2f2b'; cx.fillRect(0, 18, 24, 8);
+      cx.fillStyle = '#7c5c49'; cx.fillRect(10, 13, 4, 6);
       cx.fillStyle = '#40a02b';
-      cx.beginPath();
-      cx.moveTo(11, 4);
-      cx.lineTo(16, 13);
-      cx.lineTo(6, 13);
-      cx.closePath();
-      cx.fill();
-
-      cx.fillStyle = '#a6e3a1';
-      cx.beginPath();
-      cx.moveTo(11, 7);
-      cx.lineTo(15, 14);
-      cx.lineTo(7, 14);
-      cx.closePath();
-      cx.fill();
-
-      cx.fillStyle = '#f9e2af';
-      cx.fillRect(6, 8, 1, 1);
-      cx.fillRect(16, 6, 1, 1);
-      cx.fillRect(14, 17, 1, 1);
+      cx.beginPath(); cx.moveTo(12, 3); cx.lineTo(18, 14); cx.lineTo(6, 14); cx.closePath(); cx.fill();
+      cx.fillStyle = '#a6e3a1'; cx.fillRect(9, 6, 6, 4);
     };
 
     const heartArt = function (cx: CanvasRenderingContext2D): void {
-      cx.fillStyle = '#313244';
-      cx.fillRect(0, 0, 24, 26);
-
+      cx.fillStyle = '#313244'; cx.fillRect(0, 0, 24, 26);
       cx.fillStyle = '#f5c2e7';
-      cx.beginPath();
-      cx.arc(9, 10, 2.4, 0, Math.PI * 2);
-      cx.fill();
-
-      cx.beginPath();
-      cx.arc(13, 10, 2.4, 0, Math.PI * 2);
-      cx.fill();
-
-      cx.beginPath();
-      cx.moveTo(6.8, 11);
-      cx.lineTo(15.2, 11);
-      cx.lineTo(11, 17);
-      cx.closePath();
-      cx.fill();
-
-      cx.fillStyle = '#cba6f7';
-      cx.fillRect(5, 6, 1, 1);
-      cx.fillRect(17, 8, 1, 1);
-      cx.fillRect(7, 18, 1, 1);
+      cx.fillRect(6, 9, 4, 4); cx.fillRect(12, 9, 4, 4);
+      cx.fillRect(5, 11, 12, 4); cx.fillRect(7, 15, 8, 3);
+      cx.fillRect(9, 18, 4, 2); cx.fillRect(10, 20, 2, 2);
     };
 
     const starArt = function (cx: CanvasRenderingContext2D): void {
-      cx.fillStyle = '#1e1e2e';
-      cx.fillRect(0, 0, 24, 26);
-
+      cx.fillStyle = '#1e1e2e'; cx.fillRect(0, 0, 24, 26);
       cx.fillStyle = '#f9e2af';
-      cx.beginPath();
-      cx.moveTo(11, 5);
-      cx.lineTo(12.8, 9.5);
-      cx.lineTo(17.5, 10);
-      cx.lineTo(13.8, 12.8);
-      cx.lineTo(15, 17.5);
-      cx.lineTo(11, 14.8);
-      cx.lineTo(7, 17.5);
-      cx.lineTo(8.2, 12.8);
-      cx.lineTo(4.5, 10);
-      cx.lineTo(9.2, 9.5);
-      cx.closePath();
-      cx.fill();
-
-      cx.fillStyle = '#89b4fa';
-      cx.fillRect(5, 6, 1, 1);
-      cx.fillRect(17, 5, 1, 1);
-      cx.fillRect(18, 17, 1, 1);
+      cx.fillRect(10, 4, 4, 4); cx.fillRect(8, 8, 8, 4);
+      cx.fillRect(4, 10, 16, 3); cx.fillRect(8, 13, 8, 3);
+      cx.fillRect(6, 16, 4, 3); cx.fillRect(14, 16, 4, 3);
     };
 
-    // Create back-wall picture textures
     picBack('iso_pic_sunset', '#7c5c49', '#1e1e2e', sunsetArt);
     picBack('iso_pic_mountain', '#585b70', '#1e1e2e', mountainArt);
     picBack('iso_pic_forest', '#45475a', '#1e1e2e', forestArt);
     picBack('iso_pic_heart', '#b4637a', '#1e1e2e', heartArt);
     picBack('iso_pic_star', '#313244', '#1e1e2e', starArt);
 
-    // Create larger left-wall window textures
-    windowLeftLarge('iso_window_warm_large', '#5a4636', '#f9e2af', '#89dceb');
-    windowLeftLarge('iso_window_cool_large', '#5a4636', '#89dceb', '#cba6f7');
+    windowLeftLarge('iso_window_warm_large', '#5a4636', '#f9e2af');
+    windowLeftLarge('iso_window_cool_large', '#5a4636', '#89dceb');
 
-    // 1x2 rotated desk
-    this.boxTexture('isodesk', 1, 2, DESK_H, '#6d5844', '#4a392b', '#5a4636', function (cx) {
-      cx.strokeStyle = '#7a6350';
-      cx.beginPath();
-      cx.moveTo(72, 4);
-      cx.lineTo(8, 36);
-      cx.moveTo(88, 12);
-      cx.lineTo(24, 44);
-      cx.stroke();
-      cx.strokeStyle = '#4a392b';
-      cx.beginPath();
-      cx.moveTo(80, 8);
-      cx.lineTo(16, 40);
-      cx.stroke();
-      cx.strokeStyle = '#3b2f2b';
-      cx.beginPath();
-      cx.moveTo(48, 48);
-      cx.lineTo(80, 32);
-      cx.lineTo(80, 42);
-      cx.lineTo(48, 58);
-      cx.closePath();
-      cx.stroke();
-      cx.fillStyle = '#f9e2af';
-      cx.fillRect(62, 44, 3, 2);
-      cx.strokeStyle = '#3b2f2b';
-      cx.beginPath();
-      cx.moveTo(8, 42);
-      cx.lineTo(24, 50);
-      cx.lineTo(24, 60);
-      cx.lineTo(8, 52);
-      cx.closePath();
-      cx.stroke();
-      cx.fillStyle = '#f9e2af';
-      cx.fillRect(14, 52, 3, 2);
+    this.boxTexture('isodesk', 1, 2, DESK_H, '#8b5a2b', '#6d4c41', '#795548', function (cx) {
+      cx.strokeStyle = '#1e1e2e'; cx.lineWidth = 2;
+      cx.beginPath(); cx.moveTo(48, 48); cx.lineTo(80, 32); cx.lineTo(80, 42); cx.lineTo(48, 58); cx.closePath(); cx.stroke();
+      cx.fillStyle = '#f9e2af'; cx.fillRect(62, 44, 4, 4);
+      cx.beginPath(); cx.moveTo(8, 42); cx.lineTo(24, 50); cx.lineTo(24, 60); cx.lineTo(8, 52); cx.closePath(); cx.stroke();
+      cx.fillStyle = '#f9e2af'; cx.fillRect(14, 52, 4, 4);
     });
 
     this.canvasTexture('iso_crt', 44, 48, function (cx) {
-      // Left side (now back/side)
-      cx.fillStyle = '#313244';
-      cx.beginPath();
-      cx.moveTo(4, 9);
-      cx.lineTo(22, 18);
-      cx.lineTo(22, 44);
-      cx.lineTo(4, 35);
-      cx.closePath();
-      cx.fill();
+      cx.fillStyle = '#585b70';
+      cx.beginPath(); cx.moveTo(4, 9); cx.lineTo(22, 18); cx.lineTo(22, 44); cx.lineTo(4, 35); cx.closePath(); cx.fill();
+      cx.fillStyle = '#45475a';
+      cx.beginPath(); cx.moveTo(40, 9); cx.lineTo(22, 18); cx.lineTo(22, 44); cx.lineTo(40, 35); cx.closePath(); cx.fill();
       
-      // Right side (now front with screen)
-      cx.fillStyle = '#26263a';
-      cx.beginPath();
-      cx.moveTo(40, 9);
-      cx.lineTo(22, 18);
-      cx.lineTo(22, 44);
-      cx.lineTo(40, 35);
-      cx.closePath();
-      cx.fill();
+      cx.fillStyle = '#1e1e2e';
+      cx.beginPath(); cx.moveTo(37, 14); cx.lineTo(25, 20); cx.lineTo(25, 38); cx.lineTo(37, 32); cx.closePath(); cx.fill();
       
-      // Screen (on right face)
-      cx.fillStyle = '#101820';
-      cx.beginPath();
-      cx.moveTo(37, 14);
-      cx.lineTo(25, 20);
-      cx.lineTo(25, 38);
-      cx.lineTo(37, 32);
-      cx.closePath();
-      cx.fill();
+      cx.fillStyle = '#a6e3a1'; cx.fillRect(27, 22, 8, 2); cx.fillRect(27, 26, 6, 2);
+      cx.fillStyle = '#89b4fa'; cx.fillRect(27, 30, 7, 2);
       
-      // Screen glare / code lines (mirrored)
-      cx.strokeStyle = '#7dcfff';
-      cx.lineWidth = 1;
-      cx.beginPath();
-      cx.moveTo(35, 18);
-      cx.lineTo(29, 21);
-      cx.moveTo(35, 22);
-      cx.lineTo(27, 26);
-      cx.stroke();
+      cx.fillStyle = '#6c7086';
+      self.diamondPath(cx, 22, 9, 36, 18); cx.fill();
       
-      cx.strokeStyle = '#a6e3a1';
-      cx.beginPath();
-      cx.moveTo(35, 26);
-      cx.lineTo(30, 28.5);
-      cx.moveTo(35, 30);
-      cx.lineTo(28, 33.5);
-      cx.stroke();
-      
-      // Top diamond
-      cx.fillStyle = '#3a3a4e';
-      self.diamondPath(cx, 22, 9, 36, 18);
-      cx.fill();
-      cx.strokeStyle = 'rgba(17,17,27,0.6)';
-      self.diamondPath(cx, 22, 9, 36, 18);
-      cx.stroke();
+      cx.strokeStyle = '#1e1e2e'; cx.lineWidth = 2;
+      cx.beginPath(); cx.moveTo(4, 9); cx.lineTo(22, 18); cx.lineTo(22, 44); cx.lineTo(4, 35); cx.closePath(); cx.stroke();
+      cx.beginPath(); cx.moveTo(40, 9); cx.lineTo(22, 18); cx.lineTo(22, 44); cx.lineTo(40, 35); cx.closePath(); cx.stroke();
+      self.diamondPath(cx, 22, 9, 36, 18); cx.stroke();
+      cx.beginPath(); cx.moveTo(37, 14); cx.lineTo(25, 20); cx.lineTo(25, 38); cx.lineTo(37, 32); cx.closePath(); cx.stroke();
     });
 
     this.canvasTexture('iso_lamp', 24, 44, function (cx) {
       self.diamondPath(cx, 12, 38, 20, 10);
-      cx.fillStyle = '#45475a';
-      cx.fill();
-      cx.strokeStyle = '#6c7086';
-      cx.lineWidth = 2;
-      cx.beginPath();
-      cx.moveTo(12, 38);
-      cx.lineTo(12, 16);
-      cx.stroke();
+      cx.fillStyle = '#585b70'; cx.fill();
+      cx.strokeStyle = '#1e1e2e'; cx.lineWidth = 2;
+      self.diamondPath(cx, 12, 38, 20, 10); cx.stroke();
+      
+      cx.fillStyle = '#1e1e2e'; cx.fillRect(10, 16, 4, 22);
+      
       cx.fillStyle = '#fab387';
-      cx.beginPath();
-      cx.moveTo(4, 16);
-      cx.lineTo(20, 16);
-      cx.lineTo(12, 4);
-      cx.closePath();
-      cx.fill();
-      cx.fillStyle = '#ffd86a';
-      cx.beginPath();
-      cx.arc(12, 16, 4, 0, Math.PI * 2);
-      cx.fill();
+      cx.beginPath(); cx.moveTo(4, 16); cx.lineTo(20, 16); cx.lineTo(12, 4); cx.closePath(); cx.fill();
+      cx.strokeStyle = '#1e1e2e';
+      cx.beginPath(); cx.moveTo(4, 16); cx.lineTo(20, 16); cx.lineTo(12, 4); cx.closePath(); cx.stroke();
+      
+      cx.fillStyle = '#f9e2af'; cx.fillRect(10, 16, 4, 4);
     });
 
-    // Documents/: tall storage box with lid seam + slanted labels
     this.boxTexture('iso_docbox', 1, 1, 54, '#585b70', '#3a3c4e', '#45475a', function (cx) {
-      // lid seam
-      cx.strokeStyle = '#313244';
-      cx.lineWidth = 1;
-      cx.beginPath();
-      cx.moveTo(0, 22);
-      cx.lineTo(32, 38);
-      cx.lineTo(64, 22);
+      cx.strokeStyle = '#1e1e2e'; cx.lineWidth = 2;
+      cx.beginPath(); cx.moveTo(0, 22); cx.lineTo(32, 38); cx.lineTo(64, 22); cx.stroke();
+
+      cx.fillStyle = '#f9e2af';
+      cx.beginPath(); cx.moveTo(8, 44); cx.lineTo(22, 51); cx.lineTo(22, 60); cx.lineTo(8, 53); cx.closePath(); cx.fill();
       cx.stroke();
-
-      // left-face label (slanted with the isometric face)
+      
       cx.fillStyle = '#f9e2af';
-      cx.beginPath();
-      cx.moveTo(8, 44);
-      cx.lineTo(22, 51);
-      cx.lineTo(22, 60);
-      cx.lineTo(8, 53);
-      cx.closePath();
-      cx.fill();
-
-      // left label lines
-      cx.fillStyle = '#3a3c4e';
-      cx.beginPath();
-      cx.moveTo(10, 47);
-      cx.lineTo(20, 52);
-      cx.lineTo(20, 53.5);
-      cx.lineTo(10, 48.5);
-      cx.closePath();
-      cx.fill();
-
-      cx.beginPath();
-      cx.moveTo(10, 50);
-      cx.lineTo(17, 53.5);
-      cx.lineTo(17, 55);
-      cx.lineTo(10, 51.5);
-      cx.closePath();
-      cx.fill();
-
-      // right-face label (slanted with the isometric face)
-      cx.fillStyle = '#f9e2af';
-      cx.beginPath();
-      cx.moveTo(42, 51);
-      cx.lineTo(56, 44);
-      cx.lineTo(56, 53);
-      cx.lineTo(42, 60);
-      cx.closePath();
-      cx.fill();
-
-      // right label lines
-      cx.fillStyle = '#3a3c4e';
-      cx.beginPath();
-      cx.moveTo(44, 52);
-      cx.lineTo(54, 47);
-      cx.lineTo(54, 48.5);
-      cx.lineTo(44, 53.5);
-      cx.closePath();
-      cx.fill();
-
-      cx.beginPath();
-      cx.moveTo(44, 55);
-      cx.lineTo(51, 51.5);
-      cx.lineTo(51, 53);
-      cx.lineTo(44, 56.5);
-      cx.closePath();
-      cx.fill();
+      cx.beginPath(); cx.moveTo(42, 51); cx.lineTo(56, 44); cx.lineTo(56, 53); cx.lineTo(42, 60); cx.closePath(); cx.fill();
+      cx.stroke();
     });
 
     this.canvasTexture('iso_trash', 40, 34, function (cx) {
       cx.fillStyle = '#45475a';
-      cx.beginPath();
-      cx.moveTo(0, 10);
-      cx.lineTo(20, 20);
-      cx.lineTo(20, 34);
-      cx.lineTo(0, 24);
-      cx.closePath();
-      cx.fill();
-
-      cx.fillStyle = '#585b70';
-      cx.beginPath();
-      cx.moveTo(40, 10);
-      cx.lineTo(20, 20);
-      cx.lineTo(20, 34);
-      cx.lineTo(40, 24);
-      cx.closePath();
-      cx.fill();
-
-      // top rim
-      cx.fillStyle = '#6c7086';
-      self.diamondPath(cx, 20, 10, 40, 20);
-      cx.fill();
-
-      // opening
+      cx.beginPath(); cx.moveTo(0, 10); cx.lineTo(20, 20); cx.lineTo(20, 34); cx.lineTo(0, 24); cx.closePath(); cx.fill();
       cx.fillStyle = '#313244';
-      self.diamondPath(cx, 20, 10, 28, 14);
-      cx.fill();
+      cx.beginPath(); cx.moveTo(40, 10); cx.lineTo(20, 20); cx.lineTo(20, 34); cx.lineTo(40, 24); cx.closePath(); cx.fill();
 
-      // download arrow painted onto the right face, slanted with the box
+      cx.fillStyle = '#585b70'; self.diamondPath(cx, 20, 10, 40, 20); cx.fill();
+      cx.fillStyle = '#1e1e2e'; self.diamondPath(cx, 20, 10, 28, 14); cx.fill();
+
       cx.fillStyle = '#89b4fa';
+      cx.fillRect(28, 17, 4, 8);
+      cx.beginPath(); cx.moveTo(26, 25); cx.lineTo(34, 25); cx.lineTo(30, 30); cx.closePath(); cx.fill();
 
-      // shaft
-      cx.beginPath();
-      cx.moveTo(29, 17);
-      cx.lineTo(32, 15.5);
-      cx.lineTo(32, 23);
-      cx.lineTo(29, 24.5);
-      cx.closePath();
-      cx.fill();
-
-      // arrow head
-      cx.beginPath();
-      cx.moveTo(26.5, 24);
-      cx.lineTo(34.5, 20);
-      cx.lineTo(30.5, 29);
-      cx.closePath();
-      cx.fill();
-
-      // little tray line under the arrow
-      cx.strokeStyle = '#89b4fa';
-      cx.lineWidth = 1;
-      cx.beginPath();
-      cx.moveTo(26, 30);
-      cx.lineTo(34, 26);
-      cx.stroke();
-
-      // outline
-      cx.strokeStyle = 'rgba(17,17,27,0.5)';
-      self.diamondPath(cx, 20, 10, 40, 20);
-      cx.stroke();
+      cx.strokeStyle = '#1e1e2e'; cx.lineWidth = 2;
+      cx.beginPath(); cx.moveTo(0, 10); cx.lineTo(20, 20); cx.lineTo(20, 34); cx.lineTo(0, 24); cx.closePath(); cx.stroke();
+      cx.beginPath(); cx.moveTo(40, 10); cx.lineTo(20, 20); cx.lineTo(20, 34); cx.lineTo(40, 24); cx.closePath(); cx.stroke();
+      self.diamondPath(cx, 20, 10, 40, 20); cx.stroke();
     });
 
-    // Chair next to the desk, facing toward the terminal screen
     this.canvasTexture('iso_chair', 64, 70, function (cx) {
-      // soft floor shadow
-      cx.fillStyle = 'rgba(17,17,27,0.22)';
-      self.diamondPath(cx, 32, 52, 42, 21);
-      cx.fill();
+      cx.fillStyle = '#6d4c41';
+      cx.beginPath(); cx.moveTo(12, 38); cx.lineTo(32, 28); cx.lineTo(32, 10); cx.lineTo(12, 20); cx.closePath(); cx.fill();
+      cx.fillStyle = '#1e1e2e';
+      cx.fillRect(10, 38, 4, 14); cx.fillRect(50, 38, 4, 14); cx.fillRect(30, 48, 4, 14);
 
-      // backrest, placed on the back-left edge so the chair faces right/front
-      cx.fillStyle = '#5a4636';
-      cx.beginPath();
-      cx.moveTo(12, 38);
-      cx.lineTo(32, 28);
-      cx.lineTo(32, 10);
-      cx.lineTo(12, 20);
-      cx.closePath();
-      cx.fill();
+      self.diamondPath(cx, 32, 38, 40, 20); cx.fillStyle = '#8b5a2b'; cx.fill();
+      self.diamondPath(cx, 32, 38, 26, 13); cx.fillStyle = '#fab387'; cx.fill();
 
-      // backrest slats
-      cx.strokeStyle = 'rgba(59,47,43,0.65)';
-      cx.lineWidth = 2;
-      cx.beginPath();
-      cx.moveTo(16, 33);
-      cx.lineTo(16, 17);
-      cx.moveTo(22, 30);
-      cx.lineTo(22, 14);
-      cx.moveTo(28, 27);
-      cx.lineTo(28, 11);
-      cx.stroke();
-
-      // backrest top highlight
-      cx.strokeStyle = '#7a6350';
-      cx.lineWidth = 2;
-      cx.beginPath();
-      cx.moveTo(12, 20);
-      cx.lineTo(32, 10);
-      cx.stroke();
-
-      // legs
-      cx.strokeStyle = '#3b2f2b';
-      cx.lineWidth = 2;
-      cx.beginPath();
-      cx.moveTo(12, 38);
-      cx.lineTo(12, 52);
-      cx.moveTo(52, 38);
-      cx.lineTo(52, 52);
-      cx.moveTo(32, 48);
-      cx.lineTo(32, 62);
-      cx.stroke();
-
-      // seat
-      self.diamondPath(cx, 32, 38, 40, 20);
-      cx.fillStyle = '#6d5844';
-      cx.fill();
-      cx.strokeStyle = '#3b2f2b';
-      cx.lineWidth = 1;
-      cx.stroke();
-
-      // cushion
-      self.diamondPath(cx, 32, 38, 26, 13);
-      cx.fillStyle = '#fab387';
-      cx.fill();
-
-      // cushion outline
-      cx.strokeStyle = 'rgba(59,47,43,0.45)';
-      cx.lineWidth = 1;
-      self.diamondPath(cx, 32, 38, 26, 13);
-      cx.stroke();
+      cx.strokeStyle = '#1e1e2e'; cx.lineWidth = 2;
+      cx.beginPath(); cx.moveTo(12, 38); cx.lineTo(32, 28); cx.lineTo(32, 10); cx.lineTo(12, 20); cx.closePath(); cx.stroke();
+      self.diamondPath(cx, 32, 38, 40, 20); cx.stroke();
+      self.diamondPath(cx, 32, 38, 26, 13); cx.stroke();
     });
 
     this.canvasTexture('glow_radial', 128, 128, function (cx) {
-      const gr = cx.createRadialGradient(64, 64, 4, 64, 64, 64);
-      gr.addColorStop(0, 'rgba(255,255,255,1)');
-      gr.addColorStop(0.5, 'rgba(255,255,255,0.45)');
-      gr.addColorStop(1, 'rgba(255,255,255,0)');
-      cx.fillStyle = gr;
+      const grad = cx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+      grad.addColorStop(0.5, 'rgba(255,255,255,0.35)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      cx.fillStyle = grad;
       cx.fillRect(0, 0, 128, 128);
     });
 
-    // ---------------------------------------------------------------
-    // Faye the fairy, restyled: pink space buns, tan skin, white top
-    // and skirt, glitchy blue/pink butterfly wings and a sparkling
-    // wand. No legs, she floats.
-    // ---------------------------------------------------------------
+    // Fae Wings (Scaled down to 75% to match her smaller body)
     this.canvasTexture('fairy_wings', 60, 40, function (cx) {
-      const upperPath = function (X: (v: number) => number): void {
-        cx.moveTo(X(31), 18);
-        cx.lineTo(X(40), 6);
-        cx.lineTo(X(50), 3);
-        cx.lineTo(X(48), 12);
-        cx.lineTo(X(55), 15);
-        cx.lineTo(X(47), 22);
-        cx.lineTo(X(31), 24);
-        cx.closePath();
-      };
-      const lowerPath = function (X: (v: number) => number): void {
-        cx.moveTo(X(31), 24);
-        cx.lineTo(X(48), 24);
-        cx.lineTo(X(44), 32);
-        cx.lineTo(X(36), 37);
-        cx.lineTo(X(31), 30);
-        cx.closePath();
-      };
+      cx.save();
+      cx.translate(30, 20);
+      cx.scale(0.75, 0.75);
+      cx.translate(-30, -20);
 
       const drawWing = function (dir: number): void {
-        const X = function (v: number): number {
-          return dir === 1 ? v : 60 - v;
-        };
+        const X = function (v: number): number { return dir === 1 ? v : 60 - v; };
 
-        // pink outline
-        cx.lineWidth = 2;
-        cx.strokeStyle = '#f562a5';
-        cx.beginPath();
-        upperPath(X);
-        cx.stroke();
-        cx.beginPath();
-        lowerPath(X);
-        cx.stroke();
-
-        // dark wing fill
         cx.fillStyle = '#313244';
         cx.beginPath();
-        upperPath(X);
-        cx.fill();
+        cx.moveTo(X(31), 18); cx.lineTo(X(40), 6); cx.lineTo(X(50), 3);
+        cx.lineTo(X(48), 12); cx.lineTo(X(55), 15); cx.lineTo(X(47), 22); cx.lineTo(X(31), 24);
+        cx.closePath(); cx.fill();
+        
         cx.beginPath();
-        lowerPath(X);
-        cx.fill();
+        cx.moveTo(X(31), 24); cx.lineTo(X(48), 24); cx.lineTo(X(44), 32);
+        cx.lineTo(X(36), 37); cx.lineTo(X(31), 30);
+        cx.closePath(); cx.fill();
 
-        // cyan scanline stripes + blue blocks, clipped to the wing
-        cx.save();
+        cx.fillStyle = '#22c8e6';
+        cx.fillRect(X(38)-2, 10, 6, 3); cx.fillRect(X(42)-2, 16, 5, 3); cx.fillRect(X(38)-2, 24, 6, 3);
+
+        cx.lineWidth = 2; cx.strokeStyle = '#f562a5';
         cx.beginPath();
-        upperPath(X);
-        lowerPath(X);
-        cx.clip();
-
-        cx.strokeStyle = '#22c8e6';
-        cx.lineWidth = 1;
-        for (let y = 5; y !== 38; y += 3) {
-          cx.beginPath();
-          cx.moveTo(dir === 1 ? 30 : 0, y);
-          cx.lineTo(dir === 1 ? 60 : 30, y);
-          cx.stroke();
-        }
-
-        cx.fillStyle = '#1e66f5';
-        cx.fillRect(dir === 1 ? 40 : 14, 9, 6, 2);
-        cx.fillRect(dir === 1 ? 44 : 10, 17, 5, 2);
-        cx.fillRect(dir === 1 ? 38 : 17, 27, 5, 2);
-
-        cx.restore();
-
-        // bright tip pixels
-        cx.fillStyle = '#89dceb';
-        cx.fillRect(X(50) - 1, 2, 2, 2);
-        cx.fillRect(X(55) - 1, 14, 2, 2);
-        cx.fillRect(X(36) - 1, 36, 2, 2);
+        cx.moveTo(X(31), 18); cx.lineTo(X(40), 6); cx.lineTo(X(50), 3);
+        cx.lineTo(X(48), 12); cx.lineTo(X(55), 15); cx.lineTo(X(47), 22); cx.lineTo(X(31), 24);
+        cx.closePath(); cx.stroke();
+        
+        cx.beginPath();
+        cx.moveTo(X(31), 24); cx.lineTo(X(48), 24); cx.lineTo(X(44), 32);
+        cx.lineTo(X(36), 37); cx.lineTo(X(31), 30);
+        cx.closePath(); cx.stroke();
       };
 
-      drawWing(1);
-      drawWing(-1);
-
-      // floating pink pixel particles around the wings
-      cx.fillStyle = '#f562a5';
-      cx.fillRect(1, 7, 2, 2);
-      cx.fillRect(5, 19, 2, 2);
-      cx.fillRect(9, 30, 2, 2);
-      cx.fillRect(57, 7, 2, 2);
-      cx.fillRect(53, 19, 2, 2);
-      cx.fillRect(49, 30, 2, 2);
+      drawWing(1); drawWing(-1);
+      cx.restore();
     });
 
+    // Fae Body (Scaled to 75%, bigger eyes)
     this.canvasTexture('fairy', 32, 40, function (cx) {
       const PINK = '#f562a5';
-      const PINK_D = '#d84f9b';
       const SKIN = '#e0955f';
       const WHITE = '#f5e0dc';
+      
+      cx.save();
+      cx.translate(16, 20);
+      cx.scale(0.75, 0.75);
+      cx.translate(-16, -20);
 
-      // wand stick (drawn first so the hand overlaps it)
-      cx.strokeStyle = '#c58f5a';
-      cx.lineWidth = 2;
-      cx.beginPath();
-      cx.moveTo(24, 25);
-      cx.lineTo(28, 15);
-      cx.stroke();
+      const drawShape = (path: () => void, fillColor: string) => {
+        cx.fillStyle = '#1e1e2e';
+        cx.strokeStyle = '#1e1e2e';
+        cx.lineWidth = 2;
+        cx.beginPath();
+        path();
+        cx.fill();
+        cx.stroke();
+        
+        cx.fillStyle = fillColor;
+        cx.beginPath();
+        path();
+        cx.fill();
+      };
 
-      // wand sparkle star
-      cx.fillStyle = PINK;
-      cx.beginPath();
-      cx.moveTo(28, 10);
-      cx.lineTo(29.5, 13.5);
-      cx.lineTo(33, 15);
-      cx.lineTo(29.5, 16.5);
-      cx.lineTo(28, 20);
-      cx.lineTo(26.5, 16.5);
-      cx.lineTo(23, 15);
-      cx.lineTo(26.5, 13.5);
-      cx.closePath();
-      cx.fill();
+      // Wand
+      cx.strokeStyle = '#1e1e2e'; cx.lineWidth = 3;
+      cx.beginPath(); cx.moveTo(24, 25); cx.lineTo(28, 15); cx.stroke();
+      cx.strokeStyle = '#c58f5a'; cx.lineWidth = 2;
+      cx.beginPath(); cx.moveTo(24, 25); cx.lineTo(28, 15); cx.stroke();
+
+      drawShape(() => {
+        cx.moveTo(28, 8); cx.lineTo(30, 13); cx.lineTo(35, 15); cx.lineTo(30, 17);
+        cx.lineTo(28, 22); cx.lineTo(26, 17); cx.lineTo(21, 15); cx.lineTo(26, 13);
+        cx.closePath();
+      }, PINK);
+
+      drawShape(() => { cx.arc(9, 7, 4, 0, Math.PI * 2); cx.arc(23, 7, 4, 0, Math.PI * 2); }, PINK);
+      drawShape(() => { cx.arc(16, 13, 6, 0, Math.PI * 2); }, SKIN);
+      drawShape(() => { cx.arc(16, 11, 6.5, Math.PI, 0); cx.rect(10, 10, 12, 3); }, PINK);
+
+      // BIGGER EYES
+      cx.fillStyle = '#1e1e2e';
+      cx.fillRect(11, 12, 3, 4); cx.fillRect(18, 12, 3, 4);
       cx.fillStyle = '#ffffff';
-      cx.fillRect(27, 14, 2, 2);
-
-      // space buns
-      cx.fillStyle = PINK;
-      cx.beginPath();
-      cx.arc(9, 7, 4, 0, Math.PI * 2);
-      cx.fill();
-      cx.beginPath();
-      cx.arc(23, 7, 4, 0, Math.PI * 2);
-      cx.fill();
-
-      // bun swirls
-      cx.strokeStyle = PINK_D;
-      cx.lineWidth = 1;
-      cx.beginPath();
-      cx.arc(9, 7, 2, 0, Math.PI * 1.5);
-      cx.stroke();
-      cx.beginPath();
-      cx.arc(23, 7, 2, 0, Math.PI * 1.5);
-      cx.stroke();
-
-      // head
-      cx.fillStyle = SKIN;
-      cx.beginPath();
-      cx.arc(16, 13, 6, 0, Math.PI * 2);
-      cx.fill();
-
-      // hair top + bangs
-      cx.fillStyle = PINK;
-      cx.beginPath();
-      cx.arc(16, 11, 6.5, Math.PI, 0);
-      cx.fill();
-      cx.fillRect(10, 10, 12, 3);
-
-      // side strands
-      cx.fillRect(9, 11, 2, 7);
-      cx.fillRect(21, 11, 2, 7);
-
-      // big warm brown eyes with highlights
-      cx.fillStyle = '#5b3a24';
-      cx.beginPath();
-      cx.arc(13, 14, 2, 0, Math.PI * 2);
-      cx.fill();
-      cx.beginPath();
-      cx.arc(19, 14, 2, 0, Math.PI * 2);
-      cx.fill();
-      cx.fillStyle = '#ffffff';
-      cx.fillRect(12, 13, 1, 1);
-      cx.fillRect(18, 13, 1, 1);
-
-      // blush
+      cx.fillRect(11, 12, 1, 1); cx.fillRect(18, 12, 1, 1);
       cx.fillStyle = '#f38ba8';
-      cx.fillRect(10, 17, 2, 1);
-      cx.fillRect(20, 17, 2, 1);
-
-      // open happy mouth
+      cx.fillRect(10, 17, 3, 1); cx.fillRect(19, 17, 3, 1);
       cx.fillStyle = '#8c2f3f';
-      cx.beginPath();
-      cx.arc(16, 17, 2, 0, Math.PI);
-      cx.fill();
-      cx.fillStyle = '#f38ba8';
       cx.fillRect(15, 18, 2, 1);
 
-      // arms: left on hip, right holding the wand
-      cx.strokeStyle = SKIN;
-      cx.lineWidth = 2;
-      cx.beginPath();
-      cx.moveTo(12, 21);
-      cx.lineTo(9, 24);
-      cx.lineTo(12, 26);
-      cx.stroke();
-      cx.beginPath();
-      cx.moveTo(20, 21);
-      cx.lineTo(24, 24);
-      cx.stroke();
+      drawShape(() => { cx.moveTo(12, 20); cx.lineTo(8, 24); cx.lineTo(10, 26); cx.lineTo(14, 22); cx.closePath(); }, SKIN);
+      drawShape(() => { cx.moveTo(20, 20); cx.lineTo(24, 24); cx.lineTo(22, 26); cx.lineTo(18, 22); cx.closePath(); }, SKIN);
 
-      // pink wristbands
-      cx.fillStyle = PINK;
-      cx.fillRect(8, 23, 3, 2);
-      cx.fillRect(22, 23, 3, 2);
+      drawShape(() => {
+        cx.moveTo(12, 20); cx.lineTo(20, 20); cx.lineTo(22, 28);
+        cx.lineTo(26, 36); cx.lineTo(6, 36); cx.lineTo(10, 28);
+        cx.closePath();
+      }, WHITE);
+      
+      cx.fillStyle = PINK; cx.fillRect(12, 26, 8, 2);
+      cx.strokeStyle = '#d84f9b'; cx.lineWidth = 1;
+      cx.beginPath(); cx.moveTo(14, 28); cx.lineTo(12, 35); cx.moveTo(18, 28); cx.lineTo(20, 35); cx.stroke();
 
-      // white tank top
-      cx.fillStyle = WHITE;
-      cx.beginPath();
-      cx.moveTo(12, 20);
-      cx.lineTo(20, 20);
-      cx.lineTo(21, 27);
-      cx.lineTo(11, 27);
-      cx.closePath();
-      cx.fill();
-
-      // top shading
-      cx.strokeStyle = 'rgba(17,17,27,0.15)';
-      cx.lineWidth = 1;
-      cx.beginPath();
-      cx.moveTo(13, 22);
-      cx.lineTo(19, 22);
-      cx.stroke();
-
-      // pink waist ribbon + dangling strings
-      cx.fillStyle = PINK;
-      cx.fillRect(14, 26, 4, 2);
-      cx.fillRect(14, 28, 1, 4);
-      cx.fillRect(17, 28, 1, 4);
-
-      // white flared skirt, no legs below: she floats
-      cx.fillStyle = WHITE;
-      cx.beginPath();
-      cx.moveTo(11, 27);
-      cx.lineTo(21, 27);
-      cx.lineTo(24, 34);
-      cx.lineTo(8, 34);
-      cx.closePath();
-      cx.fill();
-
-      // skirt fold shading
-      cx.strokeStyle = 'rgba(17,17,27,0.15)';
-      cx.beginPath();
-      cx.moveTo(14, 28);
-      cx.lineTo(13, 33);
-      cx.moveTo(18, 28);
-      cx.lineTo(19, 33);
-      cx.stroke();
-
-      // soft float sparkles under the skirt
-      cx.fillStyle = 'rgba(245,98,165,0.6)';
-      cx.fillRect(12, 36, 1, 1);
-      cx.fillRect(16, 37, 1, 1);
-      cx.fillRect(20, 36, 1, 1);
+      cx.restore();
     });
 
+    // Player Sprites (Proportional 1:1:1 body segments, eyes added)
     const HAIR = '#7c5c49';
     const SKIN = '#ffd9b3';
     const HOOD = '#89b4fa';
     const PANT = '#313244';
     const SHOE = '#f5e0dc';
     const EYE = '#1e1e2e';
-    const legs = function (cx: CanvasRenderingContext2D, f: number): void {
-      if (f === 0) {
-        P(cx, 9, 22, 2, 7, PANT);
-        P(cx, 13, 22, 2, 7, PANT);
-        P(cx, 8, 29, 3, 2, SHOE);
-        P(cx, 13, 29, 3, 2, SHOE);
-      } else {
-        P(cx, 9, 22, 2, 5, PANT);
-        P(cx, 8, 27, 3, 2, SHOE);
-        P(cx, 13, 22, 2, 7, PANT);
-        P(cx, 13, 29, 3, 2, SHOE);
-      }
-    };
+    
     const playerFrame = function (key: string, dir: 'd' | 'u' | 's', f: number): void {
       if (self.textures.exists(key)) return;
       const ct = self.textures.createCanvas(key, 24, 32);
       if (!ct) return;
       const cx = ct.context;
+      
+      const drawBlock = (x: number, y: number, w: number, h: number, color: string) => {
+        cx.fillStyle = '#1e1e2e'; cx.fillRect(x-1, y-1, w+2, h+2);
+        cx.fillStyle = color; cx.fillRect(x, y, w, h);
+      };
+      
       if (dir === 'd') {
-        P(cx, 6, 2, 12, 3, HAIR);
-        P(cx, 5, 4, 2, 9, HAIR);
-        P(cx, 17, 4, 2, 9, HAIR);
-        P(cx, 8, 5, 8, 6, SKIN);
-        P(cx, 8, 5, 8, 2, HAIR);
-        P(cx, 9, 8, 2, 2, EYE);
-        P(cx, 13, 8, 2, 2, EYE);
-        P(cx, 7, 11, 10, 7, HOOD);
-        P(cx, 5, 11, 2, 6, HOOD);
-        P(cx, 17, 11, 2, 6, HOOD);
-        P(cx, 7, 18, 10, 4, PANT);
-        legs(cx, f);
-      } else if (dir === 'u') {
-        P(cx, 5, 2, 14, 12, HAIR);
-        P(cx, 7, 12, 10, 6, HOOD);
-        P(cx, 7, 18, 10, 4, PANT);
-        legs(cx, f);
-      } else {
-        P(cx, 6, 2, 9, 11, HAIR);
-        P(cx, 6, 2, 10, 3, HAIR);
-        P(cx, 12, 5, 6, 6, SKIN);
-        P(cx, 12, 5, 6, 2, HAIR);
-        P(cx, 15, 8, 2, 2, EYE);
-        P(cx, 8, 11, 8, 7, HOOD);
-        P(cx, 10, 12, 3, 6, HOOD);
-        P(cx, 8, 18, 8, 4, PANT);
+        // Head & Hair
+        drawBlock(5, 2, 14, 8, HAIR);
+        drawBlock(7, 4, 10, 8, SKIN);
+        drawBlock(6, 2, 12, 3, HAIR);
+        drawBlock(5, 4, 2, 5, HAIR);
+        drawBlock(17, 4, 2, 5, HAIR);
+        
+        // Eyes
+        drawBlock(8, 8, 2, 3, '#ffffff');
+        drawBlock(14, 8, 2, 3, '#ffffff');
+        cx.fillStyle = EYE; 
+        cx.fillRect(9, 9, 2, 2);
+        cx.fillRect(14, 9, 2, 2);
+        
+        // Body
+        drawBlock(6, 12, 12, 9, HOOD);
+        drawBlock(4, 13, 2, 7, HOOD);
+        drawBlock(18, 13, 2, 7, HOOD);
+        drawBlock(4, 20, 2, 2, SKIN);
+        drawBlock(18, 20, 2, 2, SKIN);
+        
+        // Legs
         if (f === 0) {
-          P(cx, 9, 22, 3, 7, PANT);
-          P(cx, 13, 22, 3, 7, PANT);
-          P(cx, 9, 29, 4, 2, SHOE);
-          P(cx, 13, 29, 4, 2, SHOE);
+          drawBlock(7, 21, 4, 5, PANT); drawBlock(13, 21, 4, 5, PANT);
+          drawBlock(6, 26, 5, 3, SHOE); drawBlock(13, 26, 5, 3, SHOE);
         } else {
-          P(cx, 9, 22, 3, 7, PANT);
-          P(cx, 9, 29, 4, 2, SHOE);
-          P(cx, 14, 22, 3, 5, PANT);
-          P(cx, 14, 27, 4, 2, SHOE);
+          drawBlock(7, 21, 4, 3, PANT); drawBlock(6, 24, 5, 3, SHOE);
+          drawBlock(13, 21, 4, 5, PANT); drawBlock(13, 26, 5, 3, SHOE);
+        }
+      } else if (dir === 'u') {
+        // Head & Hair
+        drawBlock(5, 2, 14, 10, HAIR);
+        
+        // Body
+        drawBlock(6, 12, 12, 9, HOOD);
+        drawBlock(4, 13, 2, 7, HOOD);
+        drawBlock(18, 13, 2, 7, HOOD);
+        drawBlock(4, 20, 2, 2, SKIN);
+        drawBlock(18, 20, 2, 2, SKIN);
+        
+        // Legs
+        if (f === 0) {
+          drawBlock(7, 21, 4, 5, PANT); drawBlock(13, 21, 4, 5, PANT);
+          drawBlock(6, 26, 5, 3, SHOE); drawBlock(13, 26, 5, 3, SHOE);
+        } else {
+          drawBlock(7, 21, 4, 3, PANT); drawBlock(6, 24, 5, 3, SHOE);
+          drawBlock(13, 21, 4, 5, PANT); drawBlock(13, 26, 5, 3, SHOE);
+        }
+      } else {
+        // Head & Hair
+        drawBlock(7, 2, 11, 10, HAIR);
+        drawBlock(12, 4, 6, 8, SKIN);
+        drawBlock(11, 2, 7, 3, HAIR);
+        drawBlock(7, 4, 2, 6, HAIR);
+        
+        // Eye (Side profile)
+        drawBlock(14, 8, 3, 3, '#ffffff');
+        cx.fillStyle = EYE; 
+        cx.fillRect(15, 9, 2, 2);
+        
+        // Body
+        drawBlock(8, 12, 9, 9, HOOD);
+        drawBlock(10, 13, 4, 7, HOOD);
+        drawBlock(10, 20, 4, 2, SKIN);
+        
+        // Legs
+        if (f === 0) {
+          drawBlock(8, 21, 4, 5, PANT); drawBlock(12, 21, 4, 5, PANT);
+          drawBlock(7, 26, 5, 3, SHOE); drawBlock(12, 26, 5, 3, SHOE);
+        } else {
+          drawBlock(8, 21, 4, 3, PANT); drawBlock(7, 24, 5, 3, SHOE);
+          drawBlock(12, 21, 4, 5, PANT); drawBlock(12, 26, 5, 3, SHOE);
         }
       }
       ct.refresh();
     };
-    playerFrame('pf_d0', 'd', 0);
-    playerFrame('pf_d1', 'd', 1);
-    playerFrame('pf_u0', 'u', 0);
-    playerFrame('pf_u1', 'u', 1);
-    playerFrame('pf_s0', 's', 0);
-    playerFrame('pf_s1', 's', 1);
+
+    playerFrame('pf_d0', 'd', 0); playerFrame('pf_d1', 'd', 1);
+    playerFrame('pf_u0', 'u', 0); playerFrame('pf_u1', 'u', 1);
+    playerFrame('pf_s0', 's', 0); playerFrame('pf_s1', 's', 1);
 
     if (!this.anims.exists('walk-down')) {
       this.anims.create({ key: 'walk-down', frames: [{ key: 'pf_d0' }, { key: 'pf_d1' }], frameRate: 6, repeat: -1 });
@@ -1467,24 +903,15 @@ export class IsoHomeRoomScene extends Phaser.Scene {
     offsetY = 0,
     height: number = WALL_H
   ): Phaser.GameObjects.Sprite {
-    // Calculate the true center of the box footprint in grid coordinates
     const cx = bx + (fw - 1) / 2;
     const cy = by + (fh - 1) / 2;
     const p = this.isoToScreen(cx, cy);
     
-    // chh is the height of the top diamond face in the canvas
     const chh = (fw + fh) * (TILE_H / 2);
     const canvasHeight = chh + height;
     
-    // Offset sprite Y upwards by the wall's height so the base sits on the floor
     const sprite = this.add.sprite(p.x, p.y - height, key);
-    
-    // Set origin so the base diamond perfectly aligns with the floor diamond
-    // originY = (chh / 2) / canvasHeight ensures the bottom of the side faces 
-    // aligns precisely with the floor tile's diamond footprint
     sprite.setOrigin(0.5, (chh / 2) / canvasHeight);
-    
-    // Depth calculated from the center coordinates ensures correct 2.5D sorting
     sprite.setDepth(this.computeDepth(cx, cy, offsetY));
     return sprite;
   }
@@ -1504,10 +931,8 @@ export class IsoHomeRoomScene extends Phaser.Scene {
   }
 
   private buildRoom(): void {
-    // Clear solids array to prevent collision data from accumulating on scene restart
     this.solids = [];
 
-    // floor + rug
     for (let gx = 0; gx !== GRID_W; gx++) {
       for (let gy = 0; gy !== GRID_H; gy++) {
         const tileKey = (gx + gy) % 2 === 0 ? 'isofloora' : 'isofloorb';
@@ -1518,63 +943,44 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       }
     }
 
-    // back wall (tall, slim, warm), with the CLOSED root door at (7,0)
-    // Wall visuals no longer block the whole tile, so the player can stand right beside them.
     for (let gx = 0; gx !== GRID_W; gx++) {
       if (gx === 7) {
         this.doorSprite = this.addBoxSprite('isodoorwall', 7, 0, 1, WALL_THICKNESS, 0, WALL_H);
-        // Keep the door tile solid so you cannot walk through the door yet
         this.solids.push({ x: 7, y: 0 });
       } else {
         this.addBoxSprite('isowall_back', gx, 0, 1, WALL_THICKNESS, 0, WALL_H);
       }
     }
 
-    // left wall (tall, slim, warm)
-    // Drawn as individual segments from gy 0 so the top corner is sealed and depth sorting stays correct.
-    // No solids are added here, allowing the player to walk right beside the left wall.
     for (let gy = 0; gy !== GRID_H; gy++) {
       this.addBoxSprite('isowall_left', 0, gy, WALL_THICKNESS, 1, -2, WALL_H);
     }
 
-    // Gallery wall on the back wall: different shapes, colors, and actual little pictures
     const pic1 = this.addIsoSprite('iso_pic_sunset', 1, 0, 0, 1);
-    pic1.x += 16;
-    pic1.y -= 74;
+    pic1.x += 16; pic1.y -= 74;
 
     const pic2 = this.addIsoSprite('iso_pic_mountain', 2, 0, 0, 1);
-    pic2.x += 16;
-    pic2.y -= 82;
+    pic2.x += 16; pic2.y -= 82;
 
     const pic3 = this.addIsoSprite('iso_pic_forest', 3, 0, 0, 1);
-    pic3.x += 16;
-    pic3.y -= 70;
+    pic3.x += 16; pic3.y -= 70;
 
     const pic4 = this.addIsoSprite('iso_pic_heart', 4, 0, 0, 1);
-    pic4.x += 16;
-    pic4.y -= 84;
+    pic4.x += 16; pic4.y -= 84;
 
     const pic5 = this.addIsoSprite('iso_pic_star', 5, 0, 0, 1);
-    pic5.x += 16;
-    pic5.y -= 72;
+    pic5.x += 16; pic5.y -= 72;
 
-    // Windows on the left wall, moved to opposite sides of Documents and Downloads,
-    // and lowered slightly.
     const window1 = this.addIsoSprite('iso_window_warm_large', 0, 2, 0, 48 / 56);
-    window1.x -= 16;
-    window1.y -= 66;
+    window1.x -= 16; window1.y -= 66;
 
     const window2 = this.addIsoSprite('iso_window_cool_large', 0, 5, 0, 48 / 56);
-    window2.x -= 16;
-    window2.y -= 66;
+    window2.x -= 16; window2.y -= 66;
 
-    // desk is a 1x2 rotated box on the right side
-    // Reduced depth offset so the player standing in front of the desk is drawn in front of it
     this.addBoxSprite('isodesk', 6, 2, 1, 2, 6, DESK_H);
     this.solids.push({ x: 6, y: 2 });
     this.solids.push({ x: 6, y: 3 });
 
-    // terminal sitting ON TOP of the table
     const crtPt = this.isoToScreen(6, 2.5);
     this.crtWorld = { x: crtPt.x - 6, y: crtPt.y - DESK_H - 14 };
     this.add
@@ -1582,7 +988,6 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       .setOrigin(0.5, 44 / 48)
       .setDepth(this.computeDepth(6, 2.5, 9));
 
-    // downloads bin placed on the floor next to the documents box
     const binPt = this.isoToScreen(0, 4);
     this.add
       .sprite(binPt.x, binPt.y, 'iso_trash')
@@ -1590,7 +995,6 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       .setDepth(this.computeDepth(0, 4, 0));
     this.solids.push({ x: 0, y: 4 });
 
-    // floor lamp parked in the back-right corner
     const lampPt = this.isoToScreen(8, 0);
     this.lampWorld = { x: lampPt.x, y: lampPt.y - 24 };
     this.add
@@ -1599,7 +1003,6 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       .setDepth(this.computeDepth(8, 0, 1));
     this.solids.push({ x: 8, y: 0 });
 
-    // Documents/: ONE tall box set into the left wall
     const docsPt = this.isoToScreen(0, 3);
     this.add
       .sprite(docsPt.x, docsPt.y, 'iso_docbox')
@@ -1607,7 +1010,6 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       .setDepth(this.computeDepth(0, 3, 0));
     this.solids.push({ x: 0, y: 3 });
 
-    // chair on the opposite side of the desk, facing the terminal
     const chairPt = this.isoToScreen(7, 2);
     this.add
       .sprite(chairPt.x, chairPt.y, 'iso_chair')
@@ -1616,7 +1018,6 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       .setDepth(this.computeDepth(7, 2, 6));
     this.solids.push({ x: 7, y: 2 });
 
-    // interactable points (player discovers them by walking up)
     this.interactables = [
       { id: 'computer', gx: 6, gy: 2.5, radius: 1.4, prompt: '[E] Log in to terminal', line: 'Logging you in! The terminal is your window to the whole system.' },
       { id: 'door', gx: 7, gy: 0.6, radius: 1.2, prompt: '[E] Try the root door', line: 'That door leads to / — the root directory. The whole filesystem is out there!' },
@@ -1653,6 +1054,9 @@ export class IsoHomeRoomScene extends Phaser.Scene {
 
   private buildLighting(): void {
     const self = this;
+    if (this.textures.exists('lightmap')) {
+      this.textures.remove('lightmap');
+    }
     this.lightTex = this.textures.createCanvas('lightmap', W, H)!;
     this.lightCtx = this.lightTex.context;
     this.add.image(W / 2, H / 2, 'lightmap').setBlendMode(Phaser.BlendModes.MULTIPLY).setDepth(500);
@@ -1671,9 +1075,7 @@ export class IsoHomeRoomScene extends Phaser.Scene {
     pool(this.fairyBase.x, this.fairyBase.y, C_PINK, 1.0, 0.3);
     const doorPt = this.isoToScreen(7, 0);
     pool(doorPt.x, doorPt.y - 40, C_PEACH, 1.1, 0.16);
-    pool(ORIGIN_X, ORIGIN_Y + 120, C_MAUVE, 3.0, 0.08);
 
-    // extra soft light from the larger left-wall windows
     const win1Pt = this.isoToScreen(0, 2);
     pool(win1Pt.x - 18, win1Pt.y - 88, C_YELLOW, 1.7, 0.16);
     pool(win1Pt.x + 26, win1Pt.y + 2, C_YELLOW, 1.2, 0.10);
@@ -1707,7 +1109,6 @@ export class IsoHomeRoomScene extends Phaser.Scene {
     this.punch(this.fairy.x, this.fairy.y, 90, 0.5);
     this.punch(this.player.x, this.player.y - 8, 110, 0.32);
 
-    // gentle light coming in from the larger windows
     const win1Pt = this.isoToScreen(0, 2);
     this.punch(win1Pt.x - 12, win1Pt.y - 72, 150, 0.35);
 
@@ -1751,37 +1152,6 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       .setOrigin(1, 0)
       .setDepth(600)
       .setAlpha(0.9);
-
-    this.dlgBox = this.add
-      .rectangle(400, 548, 768, 88, C_BASE0, 0.95)
-      .setStrokeStyle(2, C_PINK)
-      .setDepth(610)
-      .setVisible(false);
-    this.dlgName = this.add
-      .text(36, 512, ' Fae ', {
-        fontFamily: 'monospace',
-        fontSize: '13px',
-        color: '#1e1e2e',
-        backgroundColor: '#f5c2e7',
-        padding: { x: 4, y: 3 },
-      })
-      .setDepth(611)
-      .setVisible(false);
-    this.dlgText = this.add
-      .text(36, 534, '', {
-        fontFamily: 'monospace',
-        fontSize: '15px',
-        color: '#cdd6f4',
-        wordWrap: { width: 700 },
-      })
-      .setDepth(611)
-      .setVisible(false);
-    this.dlgArrow = this.add
-      .text(752, 582, '▼', { fontFamily: 'monospace', fontSize: '16px', color: '#f5c2e7' })
-      .setOrigin(0.5)
-      .setDepth(611)
-      .setVisible(false);
-    this.tweens.add({ targets: this.dlgArrow, alpha: 0.1, duration: 400, yoyo: true, repeat: -1 });
   }
 
   private buildInput(): void {
@@ -1798,45 +1168,16 @@ export class IsoHomeRoomScene extends Phaser.Scene {
   // =========================== DIALOGUE ===========================
 
   private openDialogue(line: string): void {
-    this.dlgActive = true;
+    // Modified to NOT lock player movement
     this.dlgFull = line;
-    this.dlgShown = 0;
-    this.dlgAcc = 0;
-    this.dlgDone = false;
-    this.dlgText.setText('');
-    this.dlgArrow.setVisible(false);
-    this.dlgBox.setVisible(true);
-    this.dlgName.setVisible(true);
-    this.dlgText.setVisible(true);
+    this.dlgDone = true;
     this.promptText.setVisible(false);
-  }
 
-  private stepDialogue(delta: number): void {
-    if (!this.dlgActive || this.dlgDone) return;
-    this.dlgAcc += delta;
-    const want = Math.floor(this.dlgAcc / 18);
-    const cap = this.dlgFull.length;
-    this.dlgShown = Math.min(cap, Math.max(this.dlgShown, want));
-    if (this.dlgShown === cap) {
-      this.dlgDone = true;
-      this.dlgArrow.setVisible(true);
-    }
-    this.dlgText.setText(this.dlgFull.substring(0, this.dlgShown));
+    const speak = this.game.registry.get('onFayeSpeak') as ((text: string) => void) | undefined;
+    if (speak) speak(line);
   }
 
   private advanceDialogue(): void {
-    if (!this.dlgDone) {
-      this.dlgShown = this.dlgFull.length;
-      this.dlgDone = true;
-      this.dlgText.setText(this.dlgFull);
-      this.dlgArrow.setVisible(true);
-      return;
-    }
-    this.dlgActive = false;
-    this.dlgBox.setVisible(false);
-    this.dlgName.setVisible(false);
-    this.dlgText.setVisible(false);
-    this.dlgArrow.setVisible(false);
     this.lockUntil = this.time.now + 250;
     if (this.pendingUnlock) {
       this.pendingUnlock = false;
@@ -1864,6 +1205,7 @@ export class IsoHomeRoomScene extends Phaser.Scene {
       this.doorSprite.setTexture('isodooropen');
       this.exploreText.setText('explored 4/4 — door unlocked!');
       this.exploreText.setColor('#a6e3a1');
+      this.openDialogue("You're ready. The door to / is unlocked!"); // Fire message without locking
     } else {
       this.exploreText.setText('explored ' + n + '/4');
     }
@@ -1872,7 +1214,7 @@ export class IsoHomeRoomScene extends Phaser.Scene {
   private lineFor(target: InteractableDef): string {
     if (target.id === 'door') {
       if (!this.doorUnlocked) {
-        return 'Explore the room first! Check your Documents, Downloads, Pictures, and Terminal.';
+        return "Go open the terminal and type 'cd root' to head to the root directory!";
       }
       return 'That door leads to / — the root directory. The whole filesystem is out there!';
     }
@@ -1932,17 +1274,7 @@ export class IsoHomeRoomScene extends Phaser.Scene {
     this.fairy.setDepth(this.computeDepth(this.fairyGrid.x, this.fairyGrid.y, 6));
     this.fairyWings.setDepth(this.computeDepth(this.fairyGrid.x, this.fairyGrid.y, 5));
 
-    if (this.dlgActive) {
-      this.stepDialogue(delta);
-      if (
-        Phaser.Input.Keyboard.JustDown(this.keyE) ||
-        Phaser.Input.Keyboard.JustDown(this.keySpace) ||
-        Phaser.Input.Keyboard.JustDown(this.keyEnter)
-      ) {
-        this.advanceDialogue();
-      }
-      return;
-    }
+    // Removed the if(this.dlgActive) block so player can walk while dialogue is active
 
     if (!this.moving) {
       if (this.cursors.up.isDown || this.keyW.isDown) this.startMove(0, -1, 'walk-up', false);

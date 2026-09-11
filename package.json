@@ -1,9 +1,16 @@
 {
-  "name": "academy-game",
-  "private": true,
+  "name": "open-terminal",
   "version": "1.0.0",
+  "description": "An interactive 2.5D retro terminal RPG for learning Linux commands",
+  "license": "MIT",
+  "author": "Your Name <your.email@example.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/username/open-terminal.git"
+  },
   "type": "module",
   "scripts": {
+    "start": "vite",
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "tsc --noEmit",

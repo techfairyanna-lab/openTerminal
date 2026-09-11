@@ -54,8 +54,8 @@ export class HomeRoomScene extends Phaser.Scene {
   private fairy!: Phaser.GameObjects.Sprite;
   private fairyWings!: Phaser.GameObjects.Sprite;
   private fairyGlow!: Phaser.GameObjects.Sprite;
-  private fairyBaseX = 480;
-  private fairyBaseY = 318;
+  private fairyBaseX = 580;
+  private fairyBaseY = 518;
 
   // lighting
   private lightTex!: Phaser.Textures.CanvasTexture;
@@ -109,7 +109,7 @@ export class HomeRoomScene extends Phaser.Scene {
       delay: 900,
       callback: () =>
         this.openDialogue(
-          'Welcome to /home! Cozy, right? Walk to the computer and press [E] to log in.'
+          'Welcome to /home! Go to the computer and press [E] to open the terminal, then head to the root directory.'
         ),
     });
   }
@@ -359,7 +359,7 @@ export class HomeRoomScene extends Phaser.Scene {
     });
 
     // ---- soft radial glow ----
-    this.canvasTexture('glow_radial', 128, 128, (cx) => {
+   this.canvasTexture('glow_radial', 128, 128, function (cx) {
       const gr = cx.createRadialGradient(64, 64, 4, 64, 64, 64);
       gr.addColorStop(0, 'rgba(255,255,255,1)');
       gr.addColorStop(0.5, 'rgba(255,255,255,0.45)');
@@ -367,7 +367,6 @@ export class HomeRoomScene extends Phaser.Scene {
       cx.fillStyle = gr;
       cx.fillRect(0, 0, 128, 128);
     });
-
     // ---- Faye the tech fairy ----
     this.canvasTexture('fairy_wings', 24, 20, (cx) => {
       cx.fillStyle = 'rgba(245,194,231,0.55)';
@@ -693,7 +692,7 @@ export class HomeRoomScene extends Phaser.Scene {
     });
     this.tweens.add({
       targets: this.fairy,
-      x: this.fairyBaseX + 8,
+      x: this.fairyBaseX + 20,
       duration: 2600,
       yoyo: true,
       repeat: -1,
