@@ -7,8 +7,8 @@ Whether you are an AI looking to reskin a 2.5D room (like in our MiniMax M3 demo
 Built with React 19, Phaser 3, Vite, and TypeScript.
 
 <p align="center">
-  <video src="public/assets/game_video.mp4" width="100%" controls autoplay loop muted playsinline>
-    <a href="public/assets/game_video.mp4">🕹️ Watch Gameplay Demo Video</a>
+  <video src="public/assets/game_video.mp4" width="100%" controls>
+    Your browser does not support the video tag.
   </video>
 </p>
 
