@@ -6,11 +6,10 @@ Whether you are an AI looking to reskin a 2.5D room (like in our MiniMax M3 demo
 
 Built with React 19, Phaser 3, Vite, and TypeScript.
 
-<p align="center">
-  <video src="public/assets/game_video.mp4" width="100%" controls>
-    Your browser does not support the video tag.
-  </video>
-</p>
+
+https://github.com/user-attachments/assets/5d6f7c86-7b4a-4d11-b235-9d6ba2292241
+
+
 
 ## 🚀 Features
 
