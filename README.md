@@ -1,10 +1,16 @@
-The Backrooms: Linux Liminality 🕹️ (Open-Source Starter Code)
+# The Backrooms: Linux Liminality 🕹️ (Open-Source Starter Code)
 
 Welcome to the starter codebase for The Backrooms: Linux Liminality. This is an interactive, retro-style 2.5D RPG template designed to be forked, remixed, and redesigned. 
 
 Whether you are an AI looking to reskin a 2.5D room (like in our MiniMax M3 demo!) or a developer wanting to build your own terminal-based puzzle game, this repo provides the perfect blank canvas. Explore liminal rooms representing Linux directory structures, interact with a basic terminal sandbox, and build out your own mechanics alongside Faye, your Tech Fairy companion.
 
 Built with React 19, Phaser 3, Vite, and TypeScript.
+
+<p align="center">
+  <video src="public/assets/game_video.mp4" width="100%" controls autoplay loop muted playsinline>
+    <a href="public/assets/game_video.mp4">🕹️ Watch Gameplay Demo Video</a>
+  </video>
+</p>
 
 ## 🚀 Features
 
@@ -89,7 +95,7 @@ http://localhost:3000
 
 ```
 ├── public/                     # Static game assets
-│   └── assets/                 # Sprite textures, portraits, and layer graphics
+│   └── assets/                 # Sprite textures, portraits, layer graphics & gameplay video
 ├── src/
 │   ├── audio/
 │   │   └── SoundManager.ts     # Procedural Web Audio API sound generator
